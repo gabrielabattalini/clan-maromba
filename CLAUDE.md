@@ -102,10 +102,14 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
 npm run dev        # desenvolvimento
 npm run lint       # eslint
 npm run typecheck  # tsc --noEmit
+npm test           # testes (node:test via tsx, pasta testes/)
 npm run build      # build de produção
 ```
 
-CI roda lint + typecheck + build em todo push (`.github/workflows/ci.yml`).
+CI roda lint + typecheck + testes + build em todo push
+(`.github/workflows/ci.yml`). O teste que existe hoje cobre a validação da
+assinatura do webhook do Mercado Pago — é a trava que separa acesso pago de
+acesso de graça, então não mexa nela sem rodar `npm test`.
 
 ## Convenções
 
