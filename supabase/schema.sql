@@ -51,6 +51,18 @@ create trigger ao_criar_usuario
   after insert on auth.users
   for each row execute function public.criar_perfil_novo_usuario();
 
+-- O gatilho acima só vale para quem se cadastrar DEPOIS daqui. Se você já
+-- tinha criado sua conta antes de rodar este arquivo, o perfil dela não
+-- existiria — e aí o comando de virar administrador, lá no final, não
+-- acharia ninguém. Esta linha cria os perfis que estiverem faltando.
+insert into public.perfis (id, nome, email)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'nome', ''),
+  coalesce(u.email, '')
+from auth.users u
+on conflict (id) do nothing;
+
 -- ------------------------------------------------------------
 -- LIVES — cada transmissão é um evento avulso com preço próprio
 -- ------------------------------------------------------------

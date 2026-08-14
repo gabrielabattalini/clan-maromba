@@ -20,15 +20,15 @@ Decisões técnicas já verificadas na doc oficial: `docs/arquitetura.md`.
 
 ## Onde paramos (atualize esta seção ao avançar)
 
-**O código da Fase 1 está escrito e no ar** (login, painel, compra, webhook,
-player, marca d'água, sessão única, auditoria, limite de tentativas). O que
-falta é **configuração**, não programação: nenhuma chave está preenchida, então
-o site funciona como uma casca. O caminho para ligar tudo está em
+**O código da Fase 1 está mesclado na `main` e no ar** (login, painel, compra,
+webhook, player, marca d'água, sessão única, auditoria, limite de tentativas).
+O que falta é **configuração**, não programação. O caminho está em
 `docs/fase-1-ligar-tudo.md` — 6 passos, cada um com teste.
 
-Situação real das chaves (conferida em 14/08/2026 pela página `/status`): as 9
-variáveis existem no projeto da Vercel mas **todas vazias**, inclusive
-`NEXT_PUBLIC_SITE_URL`. Nada do que depende de serviço externo funciona ainda.
+Situação das chaves em 14/08/2026 (conferida pela página `/status`):
+**Supabase conectado** — `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` preenchidas e
+funcionando. As 5 restantes (Cloudflare ×3, Mercado Pago ×2) continuam vazias.
 
 Ordem de dependência (não dá para pular): Supabase → SQL do
 `supabase/schema.sql` → virar admin → Mercado Pago → `MP_WEBHOOK_SECRET` →
@@ -46,7 +46,12 @@ Da Fase 0, o que já estava resolvido:
   (US$ 20/mês) ou migrar o site para Cloudflare Workers + OpenNext
   (US$ 0–5/mês, uso comercial permitido, e ele já será cliente Cloudflare por
   causa do Stream — esta é a recomendação).
-- ⬜ **Supabase** — 3 chaves + rodar o SQL + desligar "Confirm email" + admin
+- ✅ **Supabase (chaves)** — projeto `mkzsizdhkgqfhsngenoc`, 3 chaves coladas,
+  `/status` verde
+- ⬜ **Supabase (banco)** — rodar `supabase/schema.sql`, criar a conta do dono e
+  o `update perfis set admin = true`. Ordem importa: as tabelas primeiro. O SQL
+  faz backfill de `auth.users` para `perfis`, então uma conta criada antes de
+  rodar o arquivo também ganha perfil.
 - ⬜ **Mercado Pago** — Access Token de teste
 - ⬜ **Webhook do MP** — `MP_WEBHOOK_SECRET`
 - ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
