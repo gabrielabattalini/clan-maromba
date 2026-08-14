@@ -112,6 +112,8 @@ export type BolaoPalpite = {
   id: string;
   categoria_id: string;
   usuario_id: string;
+  /** A compra que pagou por esta entrada. Uma entrada por ticket. */
+  compra_id: string | null;
   atleta_1: string;
   atleta_2: string;
   atleta_3: string;
@@ -131,8 +133,10 @@ export type BolaoResultado = {
   publicado_em: string;
 };
 
-/** Uma linha da classificação, já somada e ordenada. */
+/** Uma linha da classificação: UMA entrada, não uma pessoa. */
 export type LinhaDoRanking = {
+  /** Identifica a entrada — a mesma pessoa pode ter várias. */
+  palpiteId: string;
   usuarioId: string;
   apelido: string;
   pontos: number;

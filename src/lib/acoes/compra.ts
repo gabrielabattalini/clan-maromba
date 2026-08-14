@@ -65,12 +65,19 @@ export async function comprarIngresso(
   }
 
   // Já é seu?
-  const { data: compraExistente } = await supabase
-    .from("compras")
-    .select("*")
-    .eq("usuario_id", conta.usuarioId)
-    .eq("ingresso_id", ingresso.id)
-    .maybeSingle<Compra>();
+  //
+  // Ticket de bolão é a exceção: cada um é UMA entrada, e o palpite não pode
+  // ser alterado depois de enviado. Quem quiser palpitar de novo compra
+  // outra entrada — então aqui a compra repetida é permitida e nasce sempre
+  // como um registro novo.
+  const { data: compraExistente } = ingresso.so_bolao
+    ? { data: null }
+    : await supabase
+        .from("compras")
+        .select("*")
+        .eq("usuario_id", conta.usuarioId)
+        .eq("ingresso_id", ingresso.id)
+        .maybeSingle<Compra>();
 
   if (compraExistente?.status === "aprovada") {
     redirect(`/live/${live.slug}`);
