@@ -66,6 +66,8 @@ export type Ingresso = {
   limite: number | null;
   /** Dá direito ao bolão e NÃO ao vídeo. */
   so_bolao: boolean;
+  /** Qual categoria do bolão este ticket libera. */
+  categoria_bolao_id: string | null;
   ordem: number;
   ativo: boolean;
   criado_em: string;
@@ -90,6 +92,8 @@ export type BolaoCategoria = {
   nome: string;
   /** Depois deste instante o palpite tranca. */
   fecha_em: string;
+  /** Prêmio desta categoria, anunciado antes. */
+  premio: string;
   ordem: number;
   criado_em: string;
 };

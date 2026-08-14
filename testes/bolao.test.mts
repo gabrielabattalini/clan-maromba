@@ -78,6 +78,7 @@ test("a categoria fecha na hora marcada, nem antes nem depois", () => {
     live_id: "1",
     nome: "Open",
     fecha_em: "2026-09-26T22:00:00-03:00",
+    premio: "",
     ordem: 0,
     criado_em: "2026-08-01T00:00:00Z",
   };

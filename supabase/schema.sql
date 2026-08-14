@@ -272,9 +272,20 @@ create table if not exists public.bolao_categorias (
   -- Depois deste instante o palpite tranca. Sem isso alguém palpitaria
   -- já sabendo o resultado.
   fecha_em    timestamptz not null,
+  -- Prêmio desta categoria, anunciado antes de abrir a venda. Fixo: é o que
+  -- separa concurso de banca.
+  premio      text        not null default '',
   ordem       integer     not null default 0,
   criado_em   timestamptz not null default now()
 );
+
+alter table public.bolao_categorias add column if not exists premio text not null default '';
+-- Um ticket de bolão vale para UMA categoria. Quem quer palpitar nas três
+-- compra três. A coluna vive aqui, e não em bolao_categorias, porque quem
+-- manda no preço e no limite continua sendo o ingresso.
+alter table public.ingressos add column if not exists categoria_bolao_id uuid
+  references public.bolao_categorias (id) on delete cascade;
+
 
 create index if not exists bolao_categorias_da_live_idx
   on public.bolao_categorias (live_id, ordem);

@@ -48,7 +48,10 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
     listarCategorias(live.id),
   ]);
 
-  const meus = vitrine.filter((i) => i.jaTenho);
+  // Os tickets do bolão não entram na vitrine da live: eles são vendidos na
+  // página do bolão, ao lado da categoria a que pertencem. Misturados aqui,
+  // seriam comprados por engano por quem só quer assistir.
+  const meus = vitrine.filter((i) => i.jaTenho && !i.ingresso.so_bolao);
   const comJanela = vitrine.filter(
     (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
   );
@@ -216,7 +219,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
                 {meus.length > 0 ? "Comprar mais dias" : "Escolha seu acesso"}
               </h2>
               <ListaDeIngressos
-                itens={vitrine.filter((i) => !i.jaTenho)}
+                itens={vitrine.filter((i) => !i.jaTenho && !i.ingresso.so_bolao)}
                 slugDaLive={live.slug}
                 logado={Boolean(conta)}
                 pagamentoLigado={mercadoPagoConfigurado}

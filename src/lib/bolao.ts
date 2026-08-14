@@ -1,5 +1,6 @@
 import { acertosExatos, apelidoPublico, pontuar, topCinco } from "@/lib/bolao-pontos";
 import { supabaseServidorConfigurado } from "@/lib/config";
+import { listarIngressos } from "@/lib/ingressos";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type {
   BolaoAtleta,
@@ -100,74 +101,146 @@ export async function meusPalpites(
   return new Map((data ?? []).map((p) => [p.categoria_id, p]));
 }
 
+/**
+ * Em quais categorias esta pessoa pode palpitar.
+ *
+ * São duas condições, e as duas foram decisão do dono:
+ *   1. ter ingresso da transmissão — o bolão é vinculado à live;
+ *   2. ter o ticket daquela categoria — um ticket vale um bolão, quem quer
+ *      as três compra três.
+ *
+ * O dono passa por cima das duas para conseguir testar antes de vender.
+ */
+export async function categoriasLiberadas(
+  usuarioId: string,
+  liveId: string,
+  ehAdmin = false,
+): Promise<Set<string>> {
+  if (!supabaseServidorConfigurado) return new Set();
+
+  const [ingressos, { data: compras }] = await Promise.all([
+    listarIngressos(liveId, true),
+    clienteAdmin()
+      .from("compras")
+      .select("ingresso_id")
+      .eq("live_id", liveId)
+      .eq("usuario_id", usuarioId)
+      .eq("status", "aprovada")
+      .returns<{ ingresso_id: string | null }[]>(),
+  ]);
+
+  if (ehAdmin) {
+    return new Set(
+      ingressos
+        .filter((i) => i.categoria_bolao_id)
+        .map((i) => i.categoria_bolao_id as string),
+    );
+  }
+
+  const meus = new Set((compras ?? []).map((c) => c.ingresso_id));
+  const porId = new Map(ingressos.map((i) => [i.id, i]));
+
+  // Compra antiga sem ingresso_id valia a live inteira; conta como ingresso
+  // da transmissão para não tirar direito de quem já tinha comprado.
+  const temALive =
+    (compras ?? []).some((c) => c.ingresso_id === null) ||
+    [...meus].some((id) => {
+      const ingresso = id ? porId.get(id) : undefined;
+      return ingresso ? !ingresso.so_bolao : false;
+    });
+
+  if (!temALive) return new Set();
+
+  return new Set(
+    [...meus]
+      .map((id) => (id ? porId.get(id) : undefined))
+      .filter((i) => i?.categoria_bolao_id)
+      .map((i) => i!.categoria_bolao_id as string),
+  );
+}
+
+/** O ticket à venda de cada categoria, se existir. */
+export async function ticketsDoBolao(liveId: string) {
+  const ingressos = await listarIngressos(liveId);
+  return new Map(
+    ingressos
+      .filter((i) => i.categoria_bolao_id)
+      .map((i) => [i.categoria_bolao_id as string, i]),
+  );
+}
+
+/** Quantos tickets pagos cada categoria vendeu — para o dono fechar a conta. */
+export async function vendasPorCategoria(
+  liveId: string,
+): Promise<Map<string, number>> {
+  if (!supabaseServidorConfigurado) return new Map();
+
+  const ingressos = await listarIngressos(liveId, true);
+  const doBolao = ingressos.filter((i) => i.categoria_bolao_id);
+  if (doBolao.length === 0) return new Map();
+
+  const { data } = await clienteAdmin()
+    .from("compras")
+    .select("ingresso_id")
+    .eq("live_id", liveId)
+    .eq("status", "aprovada")
+    .returns<{ ingresso_id: string | null }[]>();
+
+  const contagem = new Map<string, number>();
+  for (const ingresso of doBolao) {
+    const categoria = ingresso.categoria_bolao_id as string;
+    const vendidos = (data ?? []).filter((c) => c.ingresso_id === ingresso.id).length;
+    contagem.set(categoria, (contagem.get(categoria) ?? 0) + vendidos);
+  }
+  return contagem;
+}
+
 // ------------------------------------------------------------
 // Ranking
 // ------------------------------------------------------------
 
 /**
- * Soma os pontos de todas as categorias que já têm resultado publicado.
+ * A classificação de UMA categoria.
  *
- * Empate desfaz em três degraus, todos publicados no regulamento: pontos,
- * depois acertos exatos, depois quem palpitou primeiro. Chegar até o último
- * critério é raríssimo, mas ter um evita o pior cenário — dois campeões e
- * um prêmio só.
+ * O ranking é por categoria, e não somado, porque cada categoria virou um
+ * bolão pago à parte: quem comprou só o Open não disputa com quem comprou os
+ * três. Somar tudo faria o prêmio do Open depender de quanto a pessoa gastou
+ * nas outras categorias.
+ *
+ * Empate desfaz em três degraus, publicados no regulamento: pontos, acertos
+ * exatos, e quem palpitou primeiro.
  */
-export async function montarRanking(liveId: string): Promise<LinhaDoRanking[]> {
-  const categorias = await listarCategorias(liveId);
-  const ids = categorias.map((c) => c.id);
-  if (ids.length === 0) return [];
-
+export async function rankingDaCategoria(
+  categoriaId: string,
+): Promise<LinhaDoRanking[]> {
   const [palpites, resultados] = await Promise.all([
-    listarPalpites(ids),
-    listarResultados(ids),
+    listarPalpites([categoriaId]),
+    listarResultados([categoriaId]),
   ]);
 
-  const oficialPorCategoria = new Map(
-    resultados.map((r) => [r.categoria_id, topCinco(r)]),
-  );
-  if (oficialPorCategoria.size === 0) return [];
+  const resultado = resultados[0];
+  if (!resultado || palpites.length === 0) return [];
 
-  const porUsuario = new Map<
-    string,
-    { pontos: number; exatos: number; desde: string }
-  >();
-
-  for (const palpite of palpites) {
-    const oficial = oficialPorCategoria.get(palpite.categoria_id);
-    if (!oficial) continue; // categoria ainda sem resultado
-
-    const meu = topCinco(palpite);
-    const atual = porUsuario.get(palpite.usuario_id) ?? {
-      pontos: 0,
-      exatos: 0,
-      desde: palpite.criado_em,
-    };
-
-    porUsuario.set(palpite.usuario_id, {
-      pontos: atual.pontos + pontuar(meu, oficial),
-      exatos: atual.exatos + acertosExatos(meu, oficial),
-      // Vale o palpite mais antigo da pessoa, em qualquer categoria.
-      desde: palpite.criado_em < atual.desde ? palpite.criado_em : atual.desde,
-    });
-  }
-
-  if (porUsuario.size === 0) return [];
+  const oficial = topCinco(resultado);
 
   const { data: perfis } = await clienteAdmin()
     .from("perfis")
     .select("id, nome, email")
-    .in("id", [...porUsuario.keys()])
+    .in("id", [...new Set(palpites.map((p) => p.usuario_id))])
     .returns<{ id: string; nome: string; email: string }[]>();
 
   const nomes = new Map((perfis ?? []).map((p) => [p.id, p]));
 
-  return [...porUsuario.entries()]
-    .map(([usuarioId, dados]) => {
-      const perfil = nomes.get(usuarioId);
+  return palpites
+    .map((palpite) => {
+      const meu = topCinco(palpite);
+      const perfil = nomes.get(palpite.usuario_id);
       return {
-        usuarioId,
+        usuarioId: palpite.usuario_id,
         apelido: apelidoPublico(perfil?.nome ?? "", perfil?.email ?? ""),
-        ...dados,
+        pontos: pontuar(meu, oficial),
+        exatos: acertosExatos(meu, oficial),
+        desde: palpite.criado_em,
       };
     })
     .sort(

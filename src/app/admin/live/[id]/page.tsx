@@ -22,6 +22,7 @@ import {
   listarCategorias,
   listarPalpites,
   listarResultados,
+  vendasPorCategoria,
 } from "@/lib/bolao";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
@@ -61,9 +62,10 @@ export default async function PaginaLiveAdmin({ params }: Props) {
 
   const categoriasDoBolao = await listarCategorias(live.id);
   const idsDasCategorias = categoriasDoBolao.map((c) => c.id);
-  const [palpitesDoBolao, resultadosDoBolao] = await Promise.all([
+  const [palpitesDoBolao, resultadosDoBolao, vendasDoBolao] = await Promise.all([
     listarPalpites(idsDasCategorias),
     listarResultados(idsDasCategorias),
+    vendasPorCategoria(live.id),
   ]);
 
   const contagemDePalpites = palpitesDoBolao.reduce((mapa, palpite) => {
@@ -322,7 +324,8 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                       "A partir de ",
                       "",
                     )}{" "}
-                    · {contagemDePalpites.get(categoria.id) ?? 0} palpites ·{" "}
+                    · {vendasDoBolao.get(categoria.id) ?? 0} tickets ·{" "}
+                    {contagemDePalpites.get(categoria.id) ?? 0} palpites ·{" "}
                     {resultadosPublicados.has(categoria.id)
                       ? "resultado publicado"
                       : "sem resultado"}

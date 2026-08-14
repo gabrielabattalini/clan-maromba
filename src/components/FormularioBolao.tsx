@@ -4,9 +4,11 @@ import { useActionState } from "react";
 
 import {
   criarCategoriaDoBolao,
+  criarTicketDoBolao,
   definirResultado,
   mudarFechamentoDoBolao,
   salvarAtletas,
+  salvarPremioDaCategoria,
   salvarPremioDoBolao,
 } from "@/app/admin/acoes";
 import type { BolaoAtleta, EstadoFormulario } from "@/lib/tipos";
@@ -166,6 +168,78 @@ export function FormularioFechamento({
           {enviando ? "Salvando…" : "Salvar horário"}
         </button>
       </div>
+    </form>
+  );
+}
+
+export function FormularioPremioDaCategoria({
+  categoriaId,
+  premioAtual,
+}: {
+  categoriaId: string;
+  premioAtual: string;
+}) {
+  const [estado, enviar, enviando] = useActionState<EstadoFormulario, FormData>(
+    salvarPremioDaCategoria.bind(null, categoriaId),
+    null,
+  );
+
+  return (
+    <form action={enviar} className="mt-4 flex flex-col gap-3">
+      <Recado estado={estado} />
+      <label className="rotulo" htmlFor="premio">
+        O que o campeão desta categoria leva
+      </label>
+      <input
+        className="campo"
+        id="premio"
+        name="premio"
+        defaultValue={premioAtual}
+        placeholder="R$ 200 no Pix + nome lido ao vivo"
+      />
+      <p className="text-xs leading-relaxed text-texto-apagado">
+        Anuncie antes de abrir a venda e não mude depois. Prêmio que muda
+        conforme o quanto foi arrecadado não é prêmio anunciado — é outra
+        coisa, e é justamente o que a gente não vai fazer.
+      </p>
+      <button className="botao botao-secundario self-start" type="submit" disabled={enviando}>
+        {enviando ? "Salvando…" : "Salvar prêmio"}
+      </button>
+    </form>
+  );
+}
+
+export function FormularioTicketDoBolao({ categoriaId }: { categoriaId: string }) {
+  const [estado, enviar, enviando] = useActionState<EstadoFormulario, FormData>(
+    criarTicketDoBolao.bind(null, categoriaId),
+    null,
+  );
+
+  return (
+    <form action={enviar} className="mt-4 flex flex-col gap-3">
+      <Recado estado={estado} />
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="rotulo" htmlFor="preco">
+            Preço do ticket
+          </label>
+          <input
+            className="campo max-w-32"
+            id="preco"
+            name="preco"
+            inputMode="decimal"
+            placeholder="5,00"
+            required
+          />
+        </div>
+        <button className="botao" type="submit" disabled={enviando}>
+          {enviando ? "Criando…" : "Criar ticket"}
+        </button>
+      </div>
+      <p className="text-xs leading-relaxed text-texto-apagado">
+        Vale só para esta categoria e <strong>não abre a transmissão</strong>.
+        Aparece à venda na página do bolão, ao lado dela.
+      </p>
     </form>
   );
 }

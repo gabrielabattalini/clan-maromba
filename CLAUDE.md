@@ -235,6 +235,17 @@ quem tem ingresso**, não produto avulso.
 `src/lib/bolao-pontos.ts` tem a conta (função pura, com teste) e
 `src/lib/bolao.ts` o acesso ao banco.
 
+- **Cada categoria é um bolão à parte, com ticket e prêmio próprios.** Um
+  ticket vale uma categoria (`ingressos.categoria_bolao_id`); quem quer as
+  três compra três. Por isso o **ranking é por categoria**
+  (`rankingDaCategoria`) e não somado: somar faria quem comprou três disputar
+  contra quem comprou um.
+- **Palpitar exige as duas coisas**: ingresso da transmissão (o bolão é
+  vinculado à live) e o ticket daquela categoria. Quem decide é
+  `categoriasLiberadas`.
+- **`vendasPorCategoria`** alimenta o painel com quantos tickets cada
+  categoria vendeu. É informação de venda; o prêmio continua sendo fixo e
+  anunciado antes, no campo `bolao_categorias.premio`.
 - **O ingresso do bolão (`ingressos.so_bolao`) é produto à parte.** Ele dá
   direito a palpitar e **não abre o player** — a regra vive em
   `src/lib/ingressos-regras.ts`, com teste, porque ele não tem janela e sem
