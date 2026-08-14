@@ -84,11 +84,16 @@ export async function listarResultados(
   return data ?? [];
 }
 
-/** Os palpites de uma pessoa, por categoria. */
+/**
+ * Os palpites de uma pessoa, agrupados por categoria.
+ *
+ * É uma LISTA por categoria, e não um só: quem compra três tickets do Open
+ * tem três palpites concorrendo ali.
+ */
 export async function meusPalpites(
   usuarioId: string,
   categoriaIds: string[],
-): Promise<Map<string, BolaoPalpite>> {
+): Promise<Map<string, BolaoPalpite[]>> {
   if (!supabaseServidorConfigurado || categoriaIds.length === 0) return new Map();
 
   const { data } = await clienteAdmin()
@@ -96,67 +101,110 @@ export async function meusPalpites(
     .select("*")
     .eq("usuario_id", usuarioId)
     .in("categoria_id", categoriaIds)
+    .order("criado_em", { ascending: true })
     .returns<BolaoPalpite[]>();
 
-  return new Map((data ?? []).map((p) => [p.categoria_id, p]));
+  const porCategoria = new Map<string, BolaoPalpite[]>();
+  for (const palpite of data ?? []) {
+    porCategoria.set(palpite.categoria_id, [
+      ...(porCategoria.get(palpite.categoria_id) ?? []),
+      palpite,
+    ]);
+  }
+  return porCategoria;
 }
 
+/** O que a pessoa tem em cada categoria: entradas compradas e ainda livres. */
+export type MinhasEntradas = {
+  /** Tickets pagos desta categoria. */
+  compradas: number;
+  /** Compras que ainda não viraram palpite — cada uma dá direito a um. */
+  livres: string[];
+};
+
 /**
- * Em quais categorias esta pessoa pode palpitar.
+ * Quantas entradas a pessoa tem em cada categoria, e quantas ainda pode usar.
  *
- * São duas condições, e as duas foram decisão do dono:
+ * Duas condições para valer alguma coisa, e as duas são decisão do dono:
  *   1. ter ingresso da transmissão — o bolão é vinculado à live;
- *   2. ter o ticket daquela categoria — um ticket vale um bolão, quem quer
- *      as três compra três.
+ *   2. ter ticket daquela categoria — um ticket vale uma entrada.
  *
- * O dono passa por cima das duas para conseguir testar antes de vender.
+ * E cada entrada é usada UMA vez: o palpite não pode ser alterado depois de
+ * enviado, então quem quiser palpitar de novo compra outro ticket.
+ *
+ * O dono não recebe entradas de brinde: para testar, ele compra igual a
+ * todo mundo (em modo de teste do Mercado Pago não custa nada).
  */
-export async function categoriasLiberadas(
+export async function entradasPorCategoria(
   usuarioId: string,
   liveId: string,
-  ehAdmin = false,
-): Promise<Set<string>> {
-  if (!supabaseServidorConfigurado) return new Set();
+): Promise<Map<string, MinhasEntradas>> {
+  const vazio = new Map<string, MinhasEntradas>();
+  if (!supabaseServidorConfigurado) return vazio;
 
-  const [ingressos, { data: compras }] = await Promise.all([
+  const [ingressos, { data: compras }, palpites] = await Promise.all([
     listarIngressos(liveId, true),
     clienteAdmin()
       .from("compras")
-      .select("ingresso_id")
+      .select("id, ingresso_id")
       .eq("live_id", liveId)
       .eq("usuario_id", usuarioId)
       .eq("status", "aprovada")
-      .returns<{ ingresso_id: string | null }[]>(),
+      .returns<{ id: string; ingresso_id: string | null }[]>(),
+    listarPalpitesDoUsuario(usuarioId, liveId),
   ]);
 
-  if (ehAdmin) {
-    return new Set(
-      ingressos
-        .filter((i) => i.categoria_bolao_id)
-        .map((i) => i.categoria_bolao_id as string),
-    );
+  const porId = new Map(ingressos.map((i) => [i.id, i]));
+  const minhasCompras = compras ?? [];
+
+  // Compra antiga sem ingresso_id valia a live inteira — conta como ingresso
+  // da transmissão para não tirar direito de quem já tinha comprado.
+  const temALive = minhasCompras.some((c) => {
+    if (c.ingresso_id === null) return true;
+    const ingresso = porId.get(c.ingresso_id);
+    return ingresso ? !ingresso.so_bolao : false;
+  });
+
+  if (!temALive) return vazio;
+
+  const usadas = new Set(palpites.map((p) => p.compra_id).filter(Boolean));
+
+  for (const compra of minhasCompras) {
+    const ingresso = compra.ingresso_id ? porId.get(compra.ingresso_id) : undefined;
+    const categoria = ingresso?.categoria_bolao_id;
+    if (!categoria) continue;
+
+    const atual = vazio.get(categoria) ?? { compradas: 0, livres: [] };
+    atual.compradas += 1;
+    if (!usadas.has(compra.id)) atual.livres.push(compra.id);
+    vazio.set(categoria, atual);
   }
 
-  const meus = new Set((compras ?? []).map((c) => c.ingresso_id));
-  const porId = new Map(ingressos.map((i) => [i.id, i]));
+  return vazio;
+}
 
-  // Compra antiga sem ingresso_id valia a live inteira; conta como ingresso
-  // da transmissão para não tirar direito de quem já tinha comprado.
-  const temALive =
-    (compras ?? []).some((c) => c.ingresso_id === null) ||
-    [...meus].some((id) => {
-      const ingresso = id ? porId.get(id) : undefined;
-      return ingresso ? !ingresso.so_bolao : false;
-    });
+/** Todos os palpites que a pessoa fez nesta live. */
+export async function listarPalpitesDoUsuario(
+  usuarioId: string,
+  liveId: string,
+): Promise<BolaoPalpite[]> {
+  if (!supabaseServidorConfigurado) return [];
 
-  if (!temALive) return new Set();
+  const categorias = await listarCategorias(liveId);
+  if (categorias.length === 0) return [];
 
-  return new Set(
-    [...meus]
-      .map((id) => (id ? porId.get(id) : undefined))
-      .filter((i) => i?.categoria_bolao_id)
-      .map((i) => i!.categoria_bolao_id as string),
-  );
+  const { data } = await clienteAdmin()
+    .from("bolao_palpites")
+    .select("*")
+    .eq("usuario_id", usuarioId)
+    .in(
+      "categoria_id",
+      categorias.map((c) => c.id),
+    )
+    .order("criado_em", { ascending: true })
+    .returns<BolaoPalpite[]>();
+
+  return data ?? [];
 }
 
 /** O ticket à venda de cada categoria, se existir. */
@@ -236,6 +284,7 @@ export async function rankingDaCategoria(
       const meu = topCinco(palpite);
       const perfil = nomes.get(palpite.usuario_id);
       return {
+        palpiteId: palpite.id,
         usuarioId: palpite.usuario_id,
         apelido: apelidoPublico(perfil?.nome ?? "", perfil?.email ?? ""),
         pontos: pontuar(meu, oficial),
@@ -253,6 +302,7 @@ export async function rankingDaCategoria(
 
 /** Uma linha da conferência do dono: com nome, e-mail e horários. */
 export type LinhaDeConferencia = {
+  palpiteId: string;
   usuarioId: string;
   nome: string;
   email: string;
@@ -304,6 +354,7 @@ export async function conferenciaDaCategoria(
       const perfil = porId.get(palpite.usuario_id);
 
       return {
+        palpiteId: palpite.id,
         usuarioId: palpite.usuario_id,
         nome: perfil?.nome || "(sem nome)",
         email: perfil?.email ?? "",
@@ -311,11 +362,21 @@ export async function conferenciaDaCategoria(
         exatos: oficial ? acertosExatos(meu, oficial) : 0,
         palpitouEm: palpite.criado_em,
         alteradoEm: palpite.atualizado_em,
-        depoisDeFechar: palpite.atualizado_em > categoria.fecha_em,
+        // O palpite é imutável, então na prática os dois horários são o
+        // mesmo. A checagem olha o maior dos dois assim mesmo: se um dia
+        // alguém alterar por dentro do banco, aparece aqui.
+        depoisDeFechar: maisTarde(palpite) > categoria.fecha_em,
         depoisDoResultado: resultado
-          ? palpite.atualizado_em > resultado.publicado_em
+          ? maisTarde(palpite) > resultado.publicado_em
           : false,
       };
     })
     .sort((a, b) => b.pontos - a.pontos || b.exatos - a.exatos);
+}
+
+/** O instante que vale para conferência: o mais recente entre os dois. */
+function maisTarde(palpite: BolaoPalpite): string {
+  return palpite.atualizado_em > palpite.criado_em
+    ? palpite.atualizado_em
+    : palpite.criado_em;
 }

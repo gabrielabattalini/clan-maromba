@@ -272,6 +272,16 @@ quem tem ingresso**, não produto avulso.
 - **Pontuação**: 10 pelo campeão, 6 por outra posição exata, 2 por atleta
   certo fora de posição. Acerto parcial existe porque cravar o top 5 é quase
   impossível — sem ele, o mais provável é ninguém ganhar.
+- **Palpite enviado nunca muda.** Decisão do dono, e é a regra que sustenta
+  o bolão pago: poder editar até o fechamento abriria a brecha de palpitar
+  cedo, esperar o resultado vazar e trocar a escolha. Quem quiser palpitar de
+  novo compra outra entrada.
+- **Cada ticket é UMA entrada** (`bolao_palpites.compra_id`, único). Três
+  tickets do Open = três palpites concorrendo, e o ranking lista entradas,
+  não pessoas — por isso a chave das linhas é `palpiteId`. Por isso também a
+  unicidade `compras_uma_por_ingresso` saiu do banco: quem barra compra
+  repetida de ingresso de assistir é `comprarIngresso`, que sabe distinguir
+  os dois casos.
 - **Empate no topo divide o prêmio** (`campeoes` + `fatiaDoPremio`, com
   teste). Empate é comum em bolão e premiar só o primeiro a palpitar seria
   arbitrário — o dono levantou isso e tinha razão. Como o prêmio anunciado é

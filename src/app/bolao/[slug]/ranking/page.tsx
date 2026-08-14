@@ -72,27 +72,27 @@ export default async function PaginaDoRanking({ params }: Props) {
             </div>
 
             {(() => {
-              const vencedores = new Set(campeoes(linhas).map((l) => l.usuarioId));
+              const vencedores = new Set(campeoes(linhas).map((l) => l.palpiteId));
 
               return (
                 <>
                   {vencedores.size > 1 ? (
                     <p className="mb-3 text-sm text-texto-fraco">
                       <strong className="text-destaque">
-                        {vencedores.size} pessoas empataram no topo
+                        {vencedores.size} palpites empataram no topo
                       </strong>{" "}
-                      — o prêmio desta categoria é dividido entre elas.
+                      — o prêmio desta categoria é dividido entre eles.
                     </p>
                   ) : null}
 
                   <ol className="flex flex-col gap-2">
                     {linhas.map((linha, indice) => (
                       <Linha
-                        key={linha.usuarioId}
+                        key={linha.palpiteId}
                         linha={linha}
                         indice={indice}
                         souEu={conta?.usuarioId === linha.usuarioId}
-                        campeao={vencedores.has(linha.usuarioId)}
+                        campeao={vencedores.has(linha.palpiteId)}
                       />
                     ))}
                   </ol>

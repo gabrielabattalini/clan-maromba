@@ -9,7 +9,8 @@ import {
   PONTOS,
   PONTOS_MAXIMOS_POR_CATEGORIA,
   categoriaAberta,
-  categoriasLiberadas,
+  entradasPorCategoria,
+  type MinhasEntradas,
   listarAtletas,
   listarCategorias,
   listarResultados,
@@ -23,7 +24,7 @@ import { contaAtual } from "@/lib/conta";
 import { janelaLegivel, precoEmReais } from "@/lib/formato";
 import { comprouAlgumaCoisa } from "@/lib/ingressos";
 import { buscarLivePorSlug } from "@/lib/lives";
-import type { Ingresso } from "@/lib/tipos";
+import type { BolaoPalpite, Ingresso } from "@/lib/tipos";
 
 export const dynamic = "force-dynamic";
 
@@ -51,14 +52,16 @@ export default async function PaginaDoBolao({ params }: Props) {
   const ids = categorias.map((c) => c.id);
   const ehAdmin = Boolean(conta?.perfil?.admin);
 
-  const [atletas, resultados, meus, tickets, liberadas, temALive] = await Promise.all([
+  const [atletas, resultados, meus, tickets, entradas, temALive] = await Promise.all([
     listarAtletas(ids),
     listarResultados(ids),
-    conta ? meusPalpites(conta.usuarioId, ids) : Promise.resolve(new Map()),
+    conta
+      ? meusPalpites(conta.usuarioId, ids)
+      : Promise.resolve(new Map<string, BolaoPalpite[]>()),
     ticketsDoBolao(live.id),
     conta
-      ? categoriasLiberadas(conta.usuarioId, live.id, ehAdmin)
-      : Promise.resolve(new Set<string>()),
+      ? entradasPorCategoria(conta.usuarioId, live.id)
+      : Promise.resolve(new Map<string, MinhasEntradas>()),
     conta
       ? comprouAlgumaCoisa(conta.usuarioId, live.id)
       : Promise.resolve(false),
@@ -78,8 +81,9 @@ export default async function PaginaDoBolao({ params }: Props) {
       <h1 className="display mt-5 text-[clamp(2.25rem,7vw,3.75rem)]">Bolão</h1>
       <p className="mt-3 max-w-prose leading-relaxed text-texto-fraco">
         Diga quem fica no top 5 de cada categoria. Quem somar mais pontos
-        naquela categoria leva o prêmio dela. Cada categoria é disputada
-        separado, com o seu ticket.
+        naquela categoria leva o prêmio dela — se mais de um empatar no topo,
+        o prêmio é dividido. Cada ticket vale uma entrada, e{" "}
+        <strong>palpite enviado não pode ser alterado</strong>.
       </p>
 
       {!temALive && !ehAdmin ? (
@@ -109,17 +113,14 @@ export default async function PaginaDoBolao({ params }: Props) {
       {/* ---------------- Categorias ---------------- */}
       {categorias.map((categoria) => {
         const daCategoria = atletas.filter((a) => a.categoria_id === categoria.id);
-        const meu = meus.get(categoria.id);
+        const minhasEntradas = meus.get(categoria.id) ?? [];
         const aberta = categoriaAberta(categoria);
 
         const ticket = tickets.get(categoria.id);
-        const liberada = liberadas.has(categoria.id);
+        const saldo = entradas.get(categoria.id);
+        const temEntradaLivre = (saldo?.livres.length ?? 0) > 0;
 
         const oficial = resultados.find((r) => r.categoria_id === categoria.id);
-        // Quanto a pessoa fez nesta categoria. Sem isso ela vê o pódio e o
-        // próprio palpite lado a lado, mas tem de contar os pontos na mão.
-        const meusPontos =
-          oficial && meu ? pontuar(topCinco(meu), topCinco(oficial)) : null;
 
         return (
           <section key={categoria.id} className="cartao mt-6 p-6">
@@ -148,53 +149,61 @@ export default async function PaginaDoBolao({ params }: Props) {
               <ResultadoOficial posicoes={topCinco(oficial)} nomes={nomeDoAtleta} />
             ) : null}
 
-            {meu ? (
-              <div className="mt-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="etiqueta !text-ok">✓ Seu palpite</p>
-                  {meusPontos !== null ? (
-                    <p className="numero text-sm">
-                      <strong className="display text-lg text-destaque">
-                        {meusPontos}
-                      </strong>{" "}
-                      <span className="text-texto-apagado">
-                        de {PONTOS_MAXIMOS_POR_CATEGORIA} pontos aqui
-                      </span>
+            {minhasEntradas.map((palpite, numero) => {
+              const meuTop = topCinco(palpite);
+              const pontos = oficial ? pontuar(meuTop, topCinco(oficial)) : null;
+
+              return (
+                <div key={palpite.id} className="mt-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="etiqueta !text-ok">
+                      ✓ Palpite {minhasEntradas.length > 1 ? `${numero + 1}` : ""}{" "}
+                      · enviado
                     </p>
-                  ) : null}
+                    {pontos !== null ? (
+                      <p className="numero text-sm">
+                        <strong className="display text-lg text-destaque">
+                          {pontos}
+                        </strong>{" "}
+                        <span className="text-texto-apagado">
+                          de {PONTOS_MAXIMOS_POR_CATEGORIA} pontos
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <ol className="numero mt-2 flex flex-col gap-1 text-sm">
+                    {meuTop.map((atletaId, indice) => {
+                      const acertouNaMosca =
+                        oficial && topCinco(oficial)[indice] === atletaId;
+                      const estaNoTop = oficial && topCinco(oficial).includes(atletaId);
+
+                      return (
+                        <li
+                          key={atletaId}
+                          className={acertouNaMosca ? "text-ok" : undefined}
+                        >
+                          <span className="text-texto-apagado">{indice + 1}º</span>{" "}
+                          {nomeDoAtleta.get(atletaId) ?? "—"}
+                          {acertouNaMosca ? (
+                            <span className="ml-2 text-xs font-bold uppercase">
+                              na mosca
+                            </span>
+                          ) : estaNoTop ? (
+                            <span className="ml-2 text-xs text-texto-apagado">
+                              no top 5
+                            </span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
                 </div>
-
-                <ol className="numero mt-2 flex flex-col gap-1 text-sm">
-                  {topCinco(meu).map((atletaId, indice) => {
-                    const acertouNaMosca =
-                      oficial && topCinco(oficial)[indice] === atletaId;
-                    const estaNoTop = oficial && topCinco(oficial).includes(atletaId);
-
-                    return (
-                      <li
-                        key={atletaId}
-                        className={acertouNaMosca ? "text-ok" : undefined}
-                      >
-                        <span className="text-texto-apagado">{indice + 1}º</span>{" "}
-                        {nomeDoAtleta.get(atletaId) ?? "—"}
-                        {acertouNaMosca ? (
-                          <span className="ml-2 text-xs font-bold uppercase">
-                            na mosca
-                          </span>
-                        ) : estaNoTop ? (
-                          <span className="ml-2 text-xs text-texto-apagado">
-                            no top 5
-                          </span>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </div>
-            ) : null}
+              );
+            })}
 
             {!aberta ? (
-              meu ? null : (
+              minhasEntradas.length > 0 ? null : (
                 <p className="mt-4 text-sm text-texto-fraco">
                   Esta categoria fechou antes de você palpitar.
                 </p>
@@ -215,17 +224,23 @@ export default async function PaginaDoBolao({ params }: Props) {
                   Ver ingressos
                 </Link>
               </p>
-            ) : !liberada ? (
-              <TicketDaCategoria ticket={ticket} pagamentoLigado={mercadoPagoConfigurado} />
+            ) : !temEntradaLivre ? (
+              <TicketDaCategoria
+                ticket={ticket}
+                pagamentoLigado={mercadoPagoConfigurado}
+                jaPalpitou={minhasEntradas.length > 0}
+              />
             ) : (
               <>
-                {meu ? (
-                  <p className="mt-5 text-sm text-texto-fraco">Quer mudar?</p>
-                ) : null}
+                <p className="mt-5 text-sm text-texto-fraco">
+                  {minhasEntradas.length > 0
+                    ? "Você tem outra entrada para usar."
+                    : "Escolha com cuidado: depois de enviar, não dá para mudar."}
+                </p>
                 <FormularioPalpite
                   categoriaId={categoria.id}
                   atletas={daCategoria}
-                  escolhaAtual={meu ? topCinco(meu) : []}
+                  escolhaAtual={[]}
                 />
               </>
             )}
@@ -259,8 +274,13 @@ export default async function PaginaDoBolao({ params }: Props) {
             ninguém que palpitou.
           </li>
           <li>
-            Cada categoria fecha no horário mostrado acima. Depois disso o
-            palpite não pode mais ser mudado.
+            <strong>Palpite enviado não muda.</strong> Confira antes de
+            enviar. Quem quiser palpitar de novo compra outra entrada — e as
+            duas concorrem.
+          </li>
+          <li>
+            Cada categoria fecha no horário mostrado acima; depois disso não
+            entra palpite novo.
           </li>
           <li>
             <strong>Empate no topo divide o prêmio.</strong> Se cinco pessoas
@@ -314,9 +334,11 @@ function ResultadoOficial({
 function TicketDaCategoria({
   ticket,
   pagamentoLigado,
+  jaPalpitou,
 }: {
   ticket: Ingresso | undefined;
   pagamentoLigado: boolean;
+  jaPalpitou: boolean;
 }) {
   if (!ticket) {
     return (
@@ -329,7 +351,9 @@ function TicketDaCategoria({
   return (
     <div className="mt-4 rounded-lg border border-borda bg-fundo-2 p-4">
       <p className="text-sm text-texto-fraco">
-        Para palpitar nesta categoria você precisa do ticket dela.
+        {jaPalpitou
+          ? "Seu palpite já foi enviado e não pode ser alterado. Quer palpitar de novo? Compre outra entrada."
+          : "Para palpitar nesta categoria você precisa do ticket dela."}
       </p>
       <p className="numero display mt-1 text-2xl">
         {precoEmReais(ticket.preco_centavos)}
@@ -339,7 +363,7 @@ function TicketDaCategoria({
         {pagamentoLigado ? (
           <BotaoComprar
             acao={comprarIngresso.bind(null, ticket.id)}
-            rotulo={`Comprar ticket · ${precoEmReais(ticket.preco_centavos)}`}
+            rotulo={`${jaPalpitou ? "Comprar outra entrada" : "Comprar ticket"} · ${precoEmReais(ticket.preco_centavos)}`}
           />
         ) : (
           <p className="aviso aviso-atencao">

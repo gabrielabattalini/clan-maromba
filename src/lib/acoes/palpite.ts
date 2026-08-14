@@ -7,7 +7,7 @@ import { registrar } from "@/lib/auditoria";
 import {
   buscarCategoria,
   categoriaAberta,
-  categoriasLiberadas,
+  entradasPorCategoria,
   listarAtletas,
 } from "@/lib/bolao";
 import { supabaseServidorConfigurado } from "@/lib/config";
@@ -24,10 +24,12 @@ const POSICOES = ["atleta_1", "atleta_2", "atleta_3", "atleta_4", "atleta_5"] as
 /**
  * Guarda o palpite de uma pessoa numa categoria.
  *
- * Dá para corrigir quantas vezes quiser até a categoria fechar. O que
- * **não** muda numa correção é o `criado_em`: ele é o último critério de
- * desempate do ranking, e teria de valer o primeiro envio, não o último —
- * senão corrigir uma vírgula jogaria a pessoa para o fim da fila.
+ * **Palpite enviado não se altera, em hipótese nenhuma.** Decisão do dono, e
+ * é a regra que sustenta o bolão: poder editar até o fechamento abre a
+ * brecha de palpitar cedo, esperar o resultado vazar e trocar a escolha.
+ *
+ * Quem quiser outro palpite compra outro ticket — cada ticket é uma entrada,
+ * e todas concorrem.
  */
 export async function salvarPalpite(
   categoriaId: string,
@@ -50,17 +52,20 @@ export async function salvarPalpite(
   }
   if (conta.perfil?.banido) return { erro: "Esta conta está bloqueada." };
 
-  // Duas condições: ingresso da transmissão (o bolão é vinculado à live) e o
-  // ticket desta categoria (um ticket vale um bolão). A checagem olha
-  // qualquer ingresso da live, e não só o que cobre este instante: quem
-  // comprou o domingo palpita na quinta, antes da janela dele abrir.
-  const ehAdmin = Boolean(conta.perfil?.admin);
-  const liberadas = await categoriasLiberadas(conta.usuarioId, live.id, ehAdmin);
-  if (!liberadas.has(categoria.id)) {
+  // Precisa de uma ENTRADA livre: ingresso da transmissão, ticket desta
+  // categoria, e esse ticket ainda não usado. Palpite enviado não muda mais.
+  const entradas = await entradasPorCategoria(conta.usuarioId, live.id);
+  const minhas = entradas.get(categoria.id);
+  const compraId = minhas?.livres[0];
+
+  if (!compraId) {
+    if (!(await comprouAlgumaCoisa(conta.usuarioId, live.id))) {
+      return { erro: "O bolão é para quem tem ingresso desta live." };
+    }
     return {
-      erro: (await comprouAlgumaCoisa(conta.usuarioId, live.id))
-        ? `Você ainda não tem o ticket de ${categoria.nome}.`
-        : "O bolão é para quem tem ingresso desta live.",
+      erro: minhas?.compradas
+        ? `Você já usou os seus tickets de ${categoria.nome}. Palpite enviado não muda — compre outro ticket para palpitar de novo.`
+        : `Você ainda não tem o ticket de ${categoria.nome}.`,
     };
   }
 
@@ -96,17 +101,15 @@ export async function salvarPalpite(
     POSICOES.map((campo, indice) => [campo, escolhidos[indice]]),
   );
 
-  const { error } = await clienteAdmin()
-    .from("bolao_palpites")
-    .upsert(
-      {
-        categoria_id: categoria.id,
-        usuario_id: conta.usuarioId,
-        ...linha,
-        atualizado_em: new Date().toISOString(),
-      },
-      { onConflict: "categoria_id,usuario_id" },
-    );
+  // Insert, nunca upsert: o palpite é definitivo. O índice único por
+  // `compra_id` é a rede de segurança — dois envios ao mesmo tempo com o
+  // mesmo ticket não viram duas entradas.
+  const { error } = await clienteAdmin().from("bolao_palpites").insert({
+    categoria_id: categoria.id,
+    usuario_id: conta.usuarioId,
+    compra_id: compraId,
+    ...linha,
+  });
 
   if (error) {
     console.error("[palpite] falha ao salvar:", error.message);
@@ -122,5 +125,7 @@ export async function salvarPalpite(
   });
 
   revalidatePath(`/bolao/${live.slug}`);
-  return { aviso: `Palpite de ${categoria.nome} guardado.` };
+  return {
+    aviso: `Palpite de ${categoria.nome} enviado. Ele não pode mais ser alterado.`,
+  };
 }

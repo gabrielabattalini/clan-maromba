@@ -130,13 +130,13 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
             <p className="etiqueta !text-destaque-fraco">Quem ganhou</p>
             <p className="mt-1 text-sm">
               <strong className="display text-xl">{vencedores.length}</strong>{" "}
-              {vencedores.length === 1 ? "campeão" : "campeões empatados"} com{" "}
+              {vencedores.length === 1 ? "palpite campeão" : "palpites empatados"} com{" "}
               <strong>{vencedores[0].pontos} pontos</strong>. O prêmio anunciado
               é dividido entre eles.
             </p>
             <ul className="mt-2 flex flex-col gap-0.5 text-sm text-texto-fraco">
               {vencedores.map((v) => (
-                <li key={v.usuarioId}>★ {v.apelido}</li>
+                <li key={v.palpiteId}>★ {v.apelido}</li>
               ))}
             </ul>
             <p className="mt-2 text-xs text-texto-apagado">
@@ -271,7 +271,7 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
 
                   return (
                     <tr
-                      key={linha.usuarioId}
+                      key={linha.palpiteId}
                       className={`border-b border-borda/60 ${
                         foraDaHora ? "text-destaque" : ""
                       }`}

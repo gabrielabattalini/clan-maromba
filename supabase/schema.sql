@@ -202,11 +202,15 @@ alter table public.compras add column if not exists ingresso_id uuid
   references public.ingressos (id) on delete set null;
 
 -- A regra antiga era "uma compra por live". Com vários ingressos, a pessoa
--- pode comprar o Dia 1 e o Dia 2 — a regra passa a ser por ingresso.
+-- pode comprar o Dia 1 e o Dia 2 — a regra passaria a ser por ingresso.
+--
+-- Mas o ticket de bolão pode ser comprado várias vezes pela mesma pessoa:
+-- cada ticket é UMA entrada, e o palpite não pode ser alterado depois de
+-- enviado — quem quiser mudar compra outra entrada. Por isso a unicidade no
+-- banco saiu: quem barra a compra repetida de um ingresso de assistir é
+-- `comprarIngresso`, que sabe distinguir os dois casos.
 alter table public.compras drop constraint if exists compras_usuario_id_live_id_key;
-create unique index if not exists compras_uma_por_ingresso
-  on public.compras (usuario_id, ingresso_id)
-  where ingresso_id is not null;
+drop index if exists compras_uma_por_ingresso;
 
 create index if not exists compras_live_idx on public.compras (live_id);
 create index if not exists compras_ingresso_idx on public.compras (ingresso_id);
@@ -313,7 +317,10 @@ create table if not exists public.bolao_palpites (
   atleta_5      uuid not null references public.bolao_atletas (id) on delete cascade,
   criado_em     timestamptz not null default now(),
   atualizado_em timestamptz not null default now(),
-  unique (categoria_id, usuario_id),
+  -- Uma entrada por ticket comprado. O palpite é imutável depois de
+  -- enviado; quem quiser outro palpite compra outro ticket.
+  compra_id     uuid references public.compras (id) on delete cascade,
+  unique (compra_id),
   -- Cinco atletas diferentes. Comparação par a par porque o Postgres não
   -- aceita subconsulta dentro de check.
   constraint bolao_palpite_sem_repetido check (
@@ -324,8 +331,16 @@ create table if not exists public.bolao_palpites (
   )
 );
 
--- `criado_em` nunca muda quando a pessoa corrige o palpite: é ele que
--- desempata o ranking, então tem de valer o primeiro envio.
+-- Migração para quem rodou a versão em que o palpite podia ser corrigido.
+alter table public.bolao_palpites add column if not exists compra_id uuid
+  references public.compras (id) on delete cascade;
+
+alter table public.bolao_palpites drop constraint if exists bolao_palpites_categoria_id_usuario_id_key;
+
+create unique index if not exists bolao_palpites_uma_por_compra
+  on public.bolao_palpites (compra_id)
+  where compra_id is not null;
+
 create index if not exists bolao_palpites_da_categoria_idx
   on public.bolao_palpites (categoria_id);
 
