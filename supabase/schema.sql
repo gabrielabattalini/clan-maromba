@@ -332,6 +332,55 @@ create table if not exists public.bolao_resultados (
 alter table public.lives add column if not exists bolao_premio text not null default '';
 
 -- ------------------------------------------------------------
+-- CHAT — conversa ao vivo, só para quem está assistindo
+-- ------------------------------------------------------------
+create table if not exists public.mensagens_chat (
+  id          bigserial primary key,
+  live_id     uuid not null references public.lives (id) on delete cascade,
+  usuario_id  uuid not null references auth.users (id) on delete cascade,
+  -- O apelido fica gravado na própria mensagem, e não é buscado no perfil na
+  -- hora de mostrar: o RLS de `perfis` só deixa cada um ver o próprio, então
+  -- sem isto a mensagem chegaria ao vivo sem nome nenhum.
+  apelido     text not null default '',
+  do_dono     boolean not null default false,
+  texto       text not null check (char_length(texto) between 1 and 300),
+  -- Mensagem apagada não some da tabela: some da tela. O registro fica para
+  -- o dono conseguir provar o que aconteceu se precisar banir alguém.
+  apagada     boolean not null default false,
+  criado_em   timestamptz not null default now()
+);
+
+create index if not exists mensagens_da_live_idx
+  on public.mensagens_chat (live_id, id desc);
+
+-- Silenciar é temporário e por live: castigo de 10 minutos resolve quase
+-- tudo sem precisar banir a conta de quem pagou ingresso.
+create table if not exists public.chat_silenciados (
+  live_id     uuid not null references public.lives (id) on delete cascade,
+  usuario_id  uuid not null references auth.users (id) on delete cascade,
+  ate         timestamptz not null,
+  primary key (live_id, usuario_id)
+);
+
+alter table public.lives add column if not exists chat_ligado boolean not null default true;
+-- Segundos que cada pessoa espera entre uma mensagem e outra. É a defesa que
+-- funciona sozinha enquanto o dono está comentando e não pode moderar.
+alter table public.lives add column if not exists chat_modo_lento integer not null default 5;
+
+-- O Realtime só entrega as mensagens novas se a tabela estiver publicada.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = 'mensagens_chat'
+  ) then
+    alter publication supabase_realtime add table public.mensagens_chat;
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
 -- LIMITES_TAXA — trava tentativa em excesso (login, compra, token)
 -- ------------------------------------------------------------
 create table if not exists public.limites_taxa (
@@ -384,6 +433,8 @@ alter table public.bolao_categorias enable row level security;
 alter table public.bolao_atletas    enable row level security;
 alter table public.bolao_palpites   enable row level security;
 alter table public.bolao_resultados enable row level security;
+alter table public.mensagens_chat   enable row level security;
+alter table public.chat_silenciados enable row level security;
 alter table public.sessoes_ativas  enable row level security;
 alter table public.logs_auditoria  enable row level security;
 alter table public.limites_taxa    enable row level security;
@@ -444,6 +495,25 @@ create policy "palpite proprio ou ja fechado" on public.bolao_palpites
     )
   );
 
+-- O chat é lido direto pelo navegador (é assim que a mensagem aparece na
+-- hora, sem recarregar), então esta política é a tranca de verdade: só quem
+-- pagou por esta live enxerga a conversa.
+--
+-- Mensagem apagada continua legível por aqui de propósito. O navegador
+-- precisa receber o aviso de que ela foi apagada para tirá-la da tela de
+-- quem já estava com ela aberta — se a política a escondesse, o aviso não
+-- chegaria e a mensagem ficaria para sempre na tela de quem viu.
+drop policy if exists "chat de quem comprou" on public.mensagens_chat;
+create policy "chat de quem comprou" on public.mensagens_chat
+  for select using (
+    exists (
+      select 1 from public.compras c
+       where c.live_id = mensagens_chat.live_id
+         and c.usuario_id = auth.uid()
+         and c.status = 'aprovada'
+    )
+  );
+
 -- Cada pessoa enxerga apenas as próprias compras.
 drop policy if exists "compras proprias" on public.compras;
 create policy "compras proprias" on public.compras
@@ -454,8 +524,8 @@ drop policy if exists "sessao propria" on public.sessoes_ativas;
 create policy "sessao propria" on public.sessoes_ativas
   for select using (auth.uid() = usuario_id);
 
--- lives_privado, logs_auditoria e limites_taxa ficam SEM nenhuma
--- permissão de propósito: são exclusivas do servidor.
+-- lives_privado, logs_auditoria, limites_taxa e chat_silenciados ficam SEM
+-- nenhuma permissão de propósito: são exclusivas do servidor.
 
 -- A função de limite de tentativas também não fica exposta.
 revoke execute on function public.registrar_tentativa(text, timestamptz, integer)

@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Chat } from "@/components/Chat";
 import { Player } from "@/components/Player";
 import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { registrar } from "@/lib/auditoria";
+import { ultimasMensagens } from "@/lib/chat";
 import { exigirConta } from "@/lib/conta";
 import { ipResumido } from "@/lib/formato";
 import { comprouAlgumaCoisa, temAcessoAgora } from "@/lib/ingressos";
@@ -89,7 +91,7 @@ export default async function PaginaAssistir({ params }: Props) {
   const identificacao = `${nome} · ${conta.email} · ${ipResumido(ip)}`;
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6">
+    <main className="mx-auto w-full max-w-7xl px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="selo selo-vivo">
@@ -106,7 +108,22 @@ export default async function PaginaAssistir({ params }: Props) {
         </Link>
       </div>
 
-      <Player slug={slug} identificacao={identificacao} />
+      {/* O chat fica ao lado do vídeo no computador e embaixo no celular.
+          Embaixo, e não sobre o vídeo: numa live de fisiculturismo o que
+          importa é ver o palco, e chat por cima come a imagem. */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_20rem] lg:items-start">
+        <Player slug={slug} identificacao={identificacao} />
+
+        <Chat
+          slug={slug}
+          liveId={live.id}
+          usuarioId={conta.usuarioId}
+          souAdmin={Boolean(conta.perfil?.admin)}
+          ligado={live.chat_ligado}
+          modoLento={live.chat_modo_lento}
+          iniciais={await ultimasMensagens(live.id)}
+        />
+      </div>
     </main>
   );
 }

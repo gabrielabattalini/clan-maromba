@@ -27,6 +27,9 @@ export type Live = {
   estado: EstadoLive;
   /** Texto livre do prêmio do bolão. Vazio = não anuncia prêmio. */
   bolao_premio: string;
+  chat_ligado: boolean;
+  /** Segundos que cada pessoa espera entre mensagens. 0 = sem espera. */
+  chat_modo_lento: number;
   criado_em: string;
 };
 
@@ -131,6 +134,28 @@ export type LinhaDoRanking = {
   exatos: number;
   /** Primeiro envio; desempata quem empatou em tudo. */
   desde: string;
+};
+
+export type MensagemChat = {
+  id: number;
+  live_id: string;
+  usuario_id: string;
+  apelido: string;
+  do_dono: boolean;
+  texto: string;
+  apagada: boolean;
+  criado_em: string;
+};
+
+/** O que o navegador recebe do chat — sem e-mail, sem nome completo. */
+export type MensagemNaTela = {
+  id: number;
+  usuarioId: string;
+  apelido: string;
+  /** Mensagem do dono do canal, destacada no chat. */
+  doDono: boolean;
+  texto: string;
+  criadoEm: string;
 };
 
 export type Compra = {
