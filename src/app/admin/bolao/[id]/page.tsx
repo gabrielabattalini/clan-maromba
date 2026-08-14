@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { FormularioAtletas, FormularioResultado } from "@/components/FormularioBolao";
+import { ajustarFechamentoDoBolao } from "@/app/admin/acoes";
+import {
+  FormularioAtletas,
+  FormularioFechamento,
+  FormularioResultado,
+} from "@/components/FormularioBolao";
 import {
   categoriaAberta,
   buscarCategoria,
@@ -60,6 +65,46 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
           {aberta ? "Aberta" : "Fechada"}
         </span>
       </header>
+
+      {/* ---------------- Fechamento ---------------- */}
+      <section className="cartao mt-8 p-6">
+        <h2 className="display text-xl">Quando fecha</h2>
+        <p className="mt-1 text-sm leading-relaxed text-texto-fraco">
+          O horário marcado fecha sozinho, mesmo que você esteja no meio da
+          transmissão. Se o evento atrasar, adie; se começar antes, feche agora.
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <form action={ajustarFechamentoDoBolao.bind(null, categoria.id, "agora")}>
+            <button className="botao" type="submit" disabled={!aberta}>
+              Fechar agora
+            </button>
+          </form>
+          {[15, 30, 60].map((minutos) => (
+            <form
+              key={minutos}
+              action={ajustarFechamentoDoBolao.bind(null, categoria.id, minutos)}
+            >
+              <button className="botao botao-secundario" type="submit">
+                +{minutos} min
+              </button>
+            </form>
+          ))}
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-texto-apagado">
+          Adiar uma categoria já fechada reabre os palpites — conta a partir de
+          agora. Cuidado para não reabrir depois que o resultado começou a
+          circular.
+        </p>
+
+        <div className="mt-5 border-t border-borda pt-5">
+          <FormularioFechamento
+            categoriaId={categoria.id}
+            fechaEm={categoria.fecha_em}
+          />
+        </div>
+      </section>
 
       {/* ---------------- Atletas ---------------- */}
       <section className="cartao mt-8 p-6">

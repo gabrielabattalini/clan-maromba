@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
+  ajustarFechamentoDoBolao,
   alternarBanimento,
   alternarIngresso,
   apagarCategoriaDoBolao,
@@ -15,7 +16,12 @@ import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
 import { FormularioIngresso } from "@/components/FormularioIngresso";
-import { listarCategorias, listarPalpites, listarResultados } from "@/lib/bolao";
+import {
+  categoriaAberta,
+  listarCategorias,
+  listarPalpites,
+  listarResultados,
+} from "@/lib/bolao";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
@@ -305,6 +311,23 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                 </div>
 
                 <div className="flex shrink-0 gap-2">
+                  {categoriaAberta(categoria) ? (
+                    <form
+                      action={ajustarFechamentoDoBolao.bind(
+                        null,
+                        categoria.id,
+                        "agora",
+                      )}
+                    >
+                      <button
+                        className="botao !px-3 !py-1.5 !text-xs"
+                        type="submit"
+                        title="Trava os palpites desta categoria neste instante"
+                      >
+                        Fechar agora
+                      </button>
+                    </form>
+                  ) : null}
                   <Link
                     className="botao botao-secundario !px-3 !py-1.5 !text-xs"
                     href={`/admin/bolao/${categoria.id}`}

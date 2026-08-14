@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import {
   criarCategoriaDoBolao,
   definirResultado,
+  mudarFechamentoDoBolao,
   salvarAtletas,
   salvarPremioDoBolao,
 } from "@/app/admin/acoes";
@@ -111,6 +112,60 @@ export function FormularioCategoria({ liveId }: { liveId: string }) {
       <button className="botao self-start" type="submit" disabled={enviando}>
         {enviando ? "Criando…" : "Criar categoria"}
       </button>
+    </form>
+  );
+}
+
+/** Campo de horário exato de fechamento, já em horário de Brasília. */
+export function FormularioFechamento({
+  categoriaId,
+  fechaEm,
+}: {
+  categoriaId: string;
+  fechaEm: string;
+}) {
+  const [estado, enviar, enviando] = useActionState<EstadoFormulario, FormData>(
+    mudarFechamentoDoBolao.bind(null, categoriaId),
+    null,
+  );
+
+  // O input datetime-local não aceita fuso: precisa do relógio de Brasília
+  // escrito como "2026-09-26T22:00".
+  const emBrasilia = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(new Date(fechaEm))
+    .replace(" ", "T");
+
+  return (
+    <form action={enviar} className="flex flex-col gap-3">
+      <Recado estado={estado} />
+      <label className="rotulo" htmlFor="fecha_em">
+        Ou marque outro horário (Brasília)
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          className="campo max-w-56"
+          id="fecha_em"
+          name="fecha_em"
+          type="datetime-local"
+          defaultValue={emBrasilia}
+          required
+        />
+        <button
+          className="botao botao-secundario"
+          type="submit"
+          disabled={enviando}
+        >
+          {enviando ? "Salvando…" : "Salvar horário"}
+        </button>
+      </div>
     </form>
   );
 }
