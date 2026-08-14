@@ -15,7 +15,9 @@ import {
   categoriaAberta,
   listarAtletas,
   listarPalpites,
+  campeoes,
   listarResultados,
+  rankingDaCategoria,
   ticketsDoBolao,
   topCinco,
   vendasPorCategoria,
@@ -39,13 +41,17 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
   const live = await buscarLivePorId(categoria.live_id);
   if (!live) notFound();
 
-  const [atletas, palpites, resultados, tickets, vendas] = await Promise.all([
-    listarAtletas([categoria.id]),
-    listarPalpites([categoria.id]),
-    listarResultados([categoria.id]),
-    ticketsDoBolao(live.id),
-    vendasPorCategoria(live.id),
-  ]);
+  const [atletas, palpites, resultados, tickets, vendas, classificacao] =
+    await Promise.all([
+      listarAtletas([categoria.id]),
+      listarPalpites([categoria.id]),
+      listarResultados([categoria.id]),
+      ticketsDoBolao(live.id),
+      vendasPorCategoria(live.id),
+      rankingDaCategoria(categoria.id),
+    ]);
+
+  const vencedores = campeoes(classificacao);
 
   const ticket = tickets.get(categoria.id);
   const vendidos = vendas.get(categoria.id) ?? 0;
@@ -115,6 +121,27 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
             <FormularioTicketDoBolao categoriaId={categoria.id} />
           </>
         )}
+
+        {vencedores.length > 0 ? (
+          <div className="mt-5 rounded-lg border border-destaque/40 bg-destaque/5 p-4">
+            <p className="etiqueta !text-destaque-fraco">Quem ganhou</p>
+            <p className="mt-1 text-sm">
+              <strong className="display text-xl">{vencedores.length}</strong>{" "}
+              {vencedores.length === 1 ? "campeão" : "campeões empatados"} com{" "}
+              <strong>{vencedores[0].pontos} pontos</strong>. O prêmio anunciado
+              é dividido entre eles.
+            </p>
+            <ul className="mt-2 flex flex-col gap-0.5 text-sm text-texto-fraco">
+              {vencedores.map((v) => (
+                <li key={v.usuarioId}>★ {v.apelido}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-texto-apagado">
+              Os nomes completos e os e-mails estão na lista de compradores da
+              live, para você conseguir pagar.
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-6 border-t border-borda pt-5">
           <h3 className="text-sm font-semibold">Prêmio desta categoria</h3>

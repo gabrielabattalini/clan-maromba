@@ -266,8 +266,12 @@ quem tem ingresso**, não produto avulso.
 - **Pontuação**: 10 pelo campeão, 6 por outra posição exata, 2 por atleta
   certo fora de posição. Acerto parcial existe porque cravar o top 5 é quase
   impossível — sem ele, o mais provável é ninguém ganhar.
-- **Desempate**: pontos → acertos exatos → quem palpitou primeiro. Por isso
-  `criado_em` do palpite **não muda** quando a pessoa corrige a escolha.
+- **Empate no topo divide o prêmio** (`campeoes` + `fatiaDoPremio`, com
+  teste). Empate é comum em bolão e premiar só o primeiro a palpitar seria
+  arbitrário — o dono levantou isso e tinha razão. Como o prêmio anunciado é
+  o teto, o custo dele não muda com a quantidade de campeões.
+- `criado_em` do palpite **não muda** quando a pessoa corrige a escolha: ele
+  ainda ordena a lista, e mexer nele puniria quem corrige.
 - **`fecha_em`** trava a categoria. É o que impede palpitar já sabendo o
   resultado; o palpite pode ser corrigido quantas vezes quiser até lá.
 - O ranking mostra nome abreviado (`apelidoPublico`) — a página é pública e
