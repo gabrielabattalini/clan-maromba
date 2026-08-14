@@ -26,9 +26,11 @@ propósito: dá folga para atraso do evento e para o pré e pós-show.
 2. Cole o bloco abaixo **inteiro**
 3. Clique em **Run**
 
-O comando acha a live pelo endereço (`slug`). Se você renomeou a live, troque
-o valor de `v_slug` na primeira linha. Rodar duas vezes **não duplica**: ele
-apaga os ingressos anteriores desta live antes de recriar.
+O comando acha a live pelo endereço (`slug`). O valor já vem preenchido com o
+da sua live — é o que aparece depois de `/live/` quando você abre a live no
+painel. Se não bater, o comando avisa em vez de fazer bobagem. Rodar duas
+vezes **não duplica**: ele apaga os ingressos anteriores desta live antes de
+recriar.
 
 > ⚠️ Só rode antes de começar a vender. Depois que houver compra, apagar
 > ingresso deixaria a compra órfã — daí em diante mexa pelo painel.
@@ -36,7 +38,7 @@ apaga os ingressos anteriores desta live antes de recriar.
 ```sql
 do $$
 declare
-  v_slug text := 'mister-olympia-2026-full-acess';  -- confira no painel
+  v_slug text := 'mister-olympia-2026-full-acess-3';  -- confira no painel
   v_live uuid;
 begin
   select id into v_live from public.lives where slug = v_slug;
@@ -106,9 +108,37 @@ possível.
 
 ---
 
+## Opcional: arrumar o nome e as datas da live
+
+Hoje a home anuncia **"Mister Olympia 2026 - Full acess"**, com "24 de setembro,
+a partir das 15h". Duas coisas ficaram estranhas depois dos ingressos:
+
+- o "Full acess" era o nome do produto, e agora quem faz esse papel é o
+  ingresso **Passe completo** — no título ele só polui a manchete (e está
+  escrito com um "s" a menos);
+- falta o dia de fim, então o site anuncia um dia só em vez dos quatro.
+
+Este comando arruma os dois. **Não mexe no endereço** (`slug`), então nenhum
+link que você já tenha mandado para alguém quebra:
+
+```sql
+update public.lives
+   set titulo = 'Mister Olympia 2026',
+       dia_inicio = '2026-09-24',
+       dia_fim = '2026-09-27',
+       hora = null
+ where slug = 'mister-olympia-2026-full-acess-3';
+```
+
+Depois disso a home passa a dizer **"24 a 27 de setembro"**. Tirei a hora
+porque o horário de cada dia já está na tabela de programação — repetir "a
+partir das 15h" na manchete brigaria com ela.
+
+---
+
 ## Depois de rodar
 
-Abra `/live/mister-olympia-2026-full-acess`. Você deve ver:
+Abra a home do site. Você deve ver:
 
 - O passe completo em destaque, com **R$ 39,90 riscado**, **R$ 29,90** grande,
   o contador regressivo e "Restam 100 ingressos"
