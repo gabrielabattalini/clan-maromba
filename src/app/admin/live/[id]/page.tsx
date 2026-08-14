@@ -15,6 +15,7 @@ import {
 import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
+import { FormularioChat } from "@/components/FormularioChat";
 import { FormularioIngresso } from "@/components/FormularioIngresso";
 import {
   categoriaAberta,
@@ -277,6 +278,22 @@ export default async function PaginaLiveAdmin({ params }: Props) {
           <h3 className="mb-4 text-sm font-semibold">Novo ingresso</h3>
           <FormularioIngresso liveId={live.id} />
         </div>
+      </section>
+
+      {/* ---------------- Chat ---------------- */}
+      <section className="cartao mt-6 p-6">
+        <h2 className="display text-xl">Chat da transmissão</h2>
+        <p className="mt-1 text-sm leading-relaxed text-texto-fraco">
+          Aparece ao lado do vídeo, só para quem está assistindo. Link é
+          bloqueado sozinho — é o que impede alguém de divulgar transmissão
+          pirata dentro da sua página. Passando o mouse numa mensagem você
+          apaga ou silencia a pessoa por 10 minutos.
+        </p>
+        <FormularioChat
+          liveId={live.id}
+          ligado={live.chat_ligado}
+          modoLento={live.chat_modo_lento}
+        />
       </section>
 
       {/* ---------------- Bolão ---------------- */}

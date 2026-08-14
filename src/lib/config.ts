@@ -6,8 +6,14 @@ function ler(nome: string): string {
   return process.env[nome]?.trim() ?? "";
 }
 
-export const SUPABASE_URL = ler("NEXT_PUBLIC_SUPABASE_URL");
-export const SUPABASE_CHAVE_PUBLICA = ler("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+// Estas duas são lidas com o nome escrito por extenso, e não pelo `ler()`:
+// o Next só troca `process.env.NEXT_PUBLIC_ALGO` por valor no pacote do
+// navegador quando o nome aparece literal no código. Com `process.env[nome]`
+// elas chegariam vazias no navegador e o chat nunca receberia mensagem nova.
+export const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+export const SUPABASE_CHAVE_PUBLICA = (
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+).trim();
 export const SUPABASE_CHAVE_SECRETA = ler("SUPABASE_SERVICE_ROLE_KEY");
 
 export const CF_CONTA = ler("CLOUDFLARE_ACCOUNT_ID");

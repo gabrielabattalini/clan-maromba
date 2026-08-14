@@ -748,3 +748,43 @@ export async function mudarFechamentoDoBolao(
   revalidatePath(`/admin/bolao/${categoriaId}`);
   return { aviso: "Horário atualizado." };
 }
+
+// ------------------------------------------------------------
+// Chat
+// ------------------------------------------------------------
+
+/**
+ * Liga, desliga e ajusta o ritmo do chat.
+ *
+ * O botão de desligar existe para o pior caso: se a conversa virar algo que
+ * ele não consegue moderar no meio da transmissão, desligar é melhor do que
+ * sair correndo atrás de mensagem por mensagem.
+ */
+export async function ajustarChat(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const ligado = dados.get("ligado") === "sim";
+  const lento = Number(String(dados.get("modo_lento") ?? "5").trim() || 0);
+
+  if (!Number.isFinite(lento) || lento < 0 || lento > 300) {
+    return { erro: "O modo lento vai de 0 a 300 segundos." };
+  }
+
+  const { error } = await clienteAdmin()
+    .from("lives")
+    .update({ chat_ligado: ligado, chat_modo_lento: Math.round(lento) })
+    .eq("id", liveId);
+
+  if (error) return { erro: "Não consegui salvar." };
+
+  revalidatePath(`/admin/live/${liveId}`);
+  return {
+    aviso: ligado
+      ? `Chat ligado, uma mensagem a cada ${Math.round(lento)}s.`
+      : "Chat desligado.",
+  };
+}

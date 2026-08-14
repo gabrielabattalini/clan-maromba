@@ -250,3 +250,30 @@ Palpite no top 5 de cada categoria, **de graça**, com ranking por pontos.
   ninguém se inscreveu para ter o nome inteiro exposto.
 - Atleta só sai da lista enquanto não houver palpite: os palpites apontam
   para ele, e removê-lo apagaria a escolha de quem tinha palpitado.
+
+## Chat ao vivo
+
+Ao lado do player, só para quem tem acesso agora. Chega pelo **Realtime do
+Supabase**: o navegador escuta `mensagens_chat` direto, então **a política de
+RLS é a tranca de verdade** (só enxerga quem tem compra aprovada da live).
+Escrever passa pelo servidor — o navegador nunca insere.
+
+- `src/lib/chat-regras.ts` é puro e tem teste. A regra que mais importa é o
+  **bloqueio de link**, incluindo disfarces ("site ponto com", caractere
+  invisível): sem ela, alguém cola o endereço de uma transmissão pirata
+  dentro da página que o dono vende. O admin escapa do filtro.
+- **Modo lento** (`lives.chat_modo_lento`, padrão 5s) e limite por IP. São as
+  defesas que funcionam sozinhas — no dia ele está comentando, não moderando.
+- Apagar não deleta a linha, marca `apagada`. E a política **deixa ler
+  mensagem apagada** de propósito: é assim que o aviso de exclusão chega ao
+  navegador de quem já estava com ela na tela.
+- `apelido` e `do_dono` ficam **gravados na mensagem**. O RLS de `perfis` só
+  deixa cada um ver o próprio, então buscar o nome na hora deixaria a
+  mensagem chegar sem autor.
+- Silenciar (`chat_silenciados`) é castigo temporário por live — banir quem
+  pagou ingresso é desproporcional e dá trabalho de reembolso.
+
+Em `src/lib/config.ts`, as duas variáveis `NEXT_PUBLIC_` são lidas com o nome
+**escrito literal**, e não pelo `ler()`: o Next só substitui
+`process.env.NEXT_PUBLIC_ALGO` quando o nome aparece por extenso. Com acesso
+dinâmico elas chegam vazias no navegador e o chat nunca recebe mensagem nova.
