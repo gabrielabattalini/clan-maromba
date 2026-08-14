@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { BotaoComprar } from "@/components/BotaoComprar";
 import { SeloEstado } from "@/components/CartaoLive";
-import { comprarAcesso } from "@/lib/acoes/compra";
+import { ListaDeIngressos } from "@/components/ListaDeIngressos";
 import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { mercadoPagoConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
-import { precoEmReais, quandoAcontece } from "@/lib/formato";
-import { buscarCompra, buscarLivePorSlug } from "@/lib/lives";
+import { janelaLegivel, quandoAcontece } from "@/lib/formato";
+import { montarVitrine, temAcessoAgora } from "@/lib/ingressos";
+import { buscarLivePorSlug } from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +38,18 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
 
   const conta = await contaAtual();
   const ehAdmin = Boolean(conta?.perfil?.admin);
-
-  // Rascunho é invisível para o público.
   if (live.estado === "rascunho" && !ehAdmin) notFound();
 
-  const compra = conta ? await buscarCompra(conta.usuarioId, live.id) : null;
-  const temAcesso = compra?.status === "aprovada";
-  const noAr = await liveEstaNoAr(live);
+  const [vitrine, noAr, podeAssistirAgora] = await Promise.all([
+    montarVitrine(live.id, conta?.usuarioId),
+    liveEstaNoAr(live),
+    conta ? temAcessoAgora(conta.usuarioId, live.id) : Promise.resolve(false),
+  ]);
+
+  const meus = vitrine.filter((i) => i.jaTenho);
+  const comJanela = vitrine.filter(
+    (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
+  );
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-8 sm:py-12">
@@ -55,7 +60,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
         ← Todas as lives
       </Link>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_20rem] lg:items-start">
+      <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_23rem] lg:items-start">
         {/* ---------------- Conteúdo ---------------- */}
         <div>
           <div className="flex flex-wrap items-center gap-3">
@@ -68,7 +73,6 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
           </div>
 
           <h1 className="display mt-4 text-[clamp(2.25rem,7vw,4rem)]">{live.titulo}</h1>
-
           <p className="numero mt-4 text-sm text-texto-fraco">{quandoAcontece(live)}</p>
 
           {live.descricao ? (
@@ -76,6 +80,34 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
               <div className="regua my-8" />
               <p className="max-w-prose whitespace-pre-line leading-relaxed text-texto-fraco">
                 {live.descricao}
+              </p>
+            </>
+          ) : null}
+
+          {/* A programação sai dos próprios ingressos: uma fonte só, sem
+              risco de a tabela dizer uma coisa e o acesso valer outra. */}
+          {comJanela.length > 0 ? (
+            <>
+              <div className="regua my-8" />
+              <h2 className="etiqueta">Programação · horário de Brasília</h2>
+
+              <ul className="mt-4 flex flex-col">
+                {comJanela.map(({ ingresso }) => (
+                  <li
+                    key={ingresso.id}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-borda py-3 last:border-0"
+                  >
+                    <span className="font-semibold">{ingresso.nome}</span>
+                    <span className="numero text-sm text-texto-fraco">
+                      {janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="mt-3 text-xs text-texto-apagado">
+                Os horários seguem o fuso de Brasília. As finais atravessam a
+                madrugada — seu acesso não corta à meia-noite.
               </p>
             </>
           ) : null}
@@ -99,14 +131,12 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
           </ul>
         </div>
 
-        {/* ---------------- Compra ---------------- */}
+        {/* ---------------- Ingressos ---------------- */}
         <aside className="lg:sticky lg:top-24">
-          {/* Recado de volta do Checkout Pro. Repare que ele não libera nada:
-              quem libera é o webhook. Aqui é só conversa com o comprador. */}
-          {pagamento === "sucesso" && !temAcesso ? (
+          {pagamento === "sucesso" && meus.length === 0 ? (
             <p className="aviso aviso-ok mb-4">
               Pagamento recebido. A confirmação chega em alguns segundos —
-              atualize a página se o botão de assistir não aparecer.
+              atualize a página se o acesso não aparecer.
             </p>
           ) : null}
           {pagamento === "pendente" ? (
@@ -121,91 +151,54 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
             </p>
           ) : null}
 
-          <div className="cartao overflow-hidden">
-            {temAcesso ? (
-              <div className="flex flex-col items-center gap-4 p-6 text-center">
-                <span className="etiqueta !text-ok">✓ Acesso liberado</span>
+          {podeAssistirAgora && noAr ? (
+            <div className="cartao mb-4 flex flex-col items-center gap-3 p-6 text-center">
+              <span className="etiqueta !text-ok">✓ Acesso liberado</span>
+              <p className="display text-2xl">A transmissão começou</p>
+              <Link
+                className="botao w-full !py-3 !text-base"
+                href={`/assistir/${live.slug}`}
+              >
+                Assistir agora
+              </Link>
+            </div>
+          ) : meus.length > 0 ? (
+            <div className="cartao mb-4 p-5">
+              <p className="etiqueta !text-ok">✓ Você já tem</p>
+              <ul className="mt-2 flex flex-col gap-1 text-sm">
+                {meus.map(({ ingresso }) => (
+                  <li key={ingresso.id} className="font-medium">
+                    {ingresso.nome}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs leading-relaxed text-texto-apagado">
+                O botão de assistir aparece sozinho quando a transmissão começar,
+                dentro da sua janela.
+              </p>
+            </div>
+          ) : null}
 
-                {noAr ? (
-                  <>
-                    <p className="display text-2xl">A live começou</p>
-                    <Link
-                      className="botao w-full !py-3 !text-base"
-                      href={`/assistir/${live.slug}`}
-                    >
-                      Assistir agora
-                    </Link>
-                  </>
-                ) : live.estado === "encerrada" ? (
-                  <p className="text-sm text-texto-fraco">
-                    Esta transmissão foi encerrada.
-                  </p>
-                ) : (
-                  <p className="text-sm leading-relaxed text-texto-fraco">
-                    O botão de assistir aparece sozinho quando a transmissão
-                    começar. Não precisa ficar recarregando — é só voltar no
-                    horário.
-                  </p>
-                )}
-              </div>
-            ) : live.estado === "encerrada" ? (
-              <div className="p-6 text-center">
-                <p className="display text-xl">Encerrada</p>
-                <p className="mt-2 text-sm text-texto-fraco">
-                  Esta live não está mais à venda.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="p-6 text-center">
-                  <p className="etiqueta">Acesso individual</p>
-                  <p className="numero display mt-2 text-[2.75rem] leading-none">
-                    {precoEmReais(live.preco_centavos)}
-                  </p>
-                  <p className="mt-2 text-xs text-texto-apagado">
-                    pagamento único, só desta live
-                  </p>
-                </div>
-
-                <div className="picote mx-6" aria-hidden />
-
-                <div className="p-6">
-                  {!conta ? (
-                    <>
-                      <Link
-                        className="botao w-full !py-3 !text-base"
-                        href={`/entrar?voltar=${encodeURIComponent(`/live/${live.slug}`)}`}
-                      >
-                        Entrar para comprar
-                      </Link>
-                      <p className="mt-3 text-center text-xs text-texto-apagado">
-                        Ainda não tem conta?{" "}
-                        <Link
-                          className="text-destaque hover:underline"
-                          href={`/cadastro?voltar=${encodeURIComponent(`/live/${live.slug}`)}`}
-                        >
-                          Criar em 30 segundos
-                        </Link>
-                      </p>
-                    </>
-                  ) : !mercadoPagoConfigurado ? (
-                    <p className="aviso aviso-atencao text-center">
-                      O pagamento ainda não foi ligado neste site.
-                    </p>
-                  ) : (
-                    <BotaoComprar
-                      acao={comprarAcesso.bind(null, live.slug)}
-                      rotulo={
-                        compra?.status === "pendente"
-                          ? "Retomar pagamento"
-                          : "Comprar acesso"
-                      }
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+          {live.estado === "encerrada" ? (
+            <div className="cartao p-6 text-center">
+              <p className="display text-xl">Encerrada</p>
+              <p className="mt-2 text-sm text-texto-fraco">
+                Esta live não está mais à venda.
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="etiqueta mb-3">
+                {meus.length > 0 ? "Comprar mais dias" : "Escolha seu acesso"}
+              </h2>
+              <ListaDeIngressos
+                itens={vitrine.filter((i) => !i.jaTenho)}
+                slugDaLive={live.slug}
+                logado={Boolean(conta)}
+                pagamentoLigado={mercadoPagoConfigurado}
+              />
+            </>
+          )}
         </aside>
       </div>
     </main>

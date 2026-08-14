@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { CartaoLive } from "@/components/CartaoLive";
+import { DestaqueDaLive } from "@/components/DestaqueDaLive";
 import { marcarQuaisEstaoNoAr } from "@/lib/ao-vivo";
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
+import { montarVitrine } from "@/lib/ingressos";
 import { listarLivesPublicas, listarMinhasLives } from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
@@ -24,38 +26,67 @@ export default async function Home() {
   const proximas = comSituacao.filter((i) => !i.noAr && i.live.estado !== "encerrada");
   const encerradas = comSituacao.filter((i) => !i.noAr && i.live.estado === "encerrada");
 
+  // O evento principal toma a home: quem está no ar tem prioridade; senão, a
+  // próxima da fila. O resto continua em cartões, abaixo.
+  const destaque = noAr[0] ?? proximas[0] ?? null;
+  const vitrineDoDestaque = destaque
+    ? await montarVitrine(destaque.live.id, conta?.usuarioId)
+    : [];
+
+  const fora = (lista: typeof comSituacao) =>
+    lista.filter((i) => i.live.id !== destaque?.live.id);
+
+  const outrasNoAr = fora(noAr);
+  const outrasProximas = fora(proximas);
+
   return (
     <main className="mx-auto w-full max-w-6xl px-5">
       {/* ---------------- Herói ---------------- */}
-      <section className="surgir py-16 sm:py-24">
+      <section className={`surgir ${destaque ? "pt-12 pb-2" : "py-16 sm:py-24"}`}>
         <p className="etiqueta">Transmissões ao vivo · acesso por evento</p>
 
-        <h1 className="display mt-5 text-[clamp(3rem,13vw,8.5rem)]">
-          Clan
-          <br />
+        <h1
+          className={`display mt-5 ${
+            destaque
+              ? "text-[clamp(1.75rem,5vw,2.75rem)]"
+              : "text-[clamp(3rem,13vw,8.5rem)]"
+          }`}
+        >
+          Clan {destaque ? null : <br />}
           <span className="text-destaque">Maromba</span>
         </h1>
 
         <div className="regua mt-8" />
 
-        <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <p className="max-w-md text-base leading-relaxed text-texto-fraco sm:text-lg">
-            Você compra o acesso a uma live específica e assiste de onde estiver.
-            Sem mensalidade, sem pacote — paga só pelo que quer ver.
-          </p>
+        {destaque ? null : (
+          <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <p className="max-w-md text-base leading-relaxed text-texto-fraco sm:text-lg">
+              Você compra o acesso a uma live específica e assiste de onde
+              estiver. Sem mensalidade, sem pacote — paga só pelo que quer ver.
+            </p>
 
-          {!conta ? (
-            <div className="flex flex-wrap gap-3">
-              <Link className="botao" href="/cadastro">
-                Criar minha conta
-              </Link>
-              <Link className="botao botao-secundario" href="/entrar">
-                Já tenho conta
-              </Link>
-            </div>
-          ) : null}
-        </div>
+            {!conta ? (
+              <div className="flex flex-wrap gap-3">
+                <Link className="botao" href="/cadastro">
+                  Criar minha conta
+                </Link>
+                <Link className="botao botao-secundario" href="/entrar">
+                  Já tenho conta
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        )}
       </section>
+
+      {destaque ? (
+        <DestaqueDaLive
+          live={destaque.live}
+          noAr={destaque.noAr}
+          comprada={compradas.has(destaque.live.id)}
+          vitrine={vitrineDoDestaque}
+        />
+      ) : null}
 
       {!supabaseServidorConfigurado ? (
         <p className="aviso aviso-atencao max-w-lg">
@@ -64,17 +95,17 @@ export default async function Home() {
         </p>
       ) : null}
 
-      {noAr.length > 0 ? (
-        <Secao titulo="Acontecendo agora" contagem={noAr.length}>
-          {noAr.map(({ live }) => (
+      {outrasNoAr.length > 0 ? (
+        <Secao titulo="Acontecendo agora" contagem={outrasNoAr.length}>
+          {outrasNoAr.map(({ live }) => (
             <CartaoLive key={live.id} live={live} noAr comprada={compradas.has(live.id)} />
           ))}
         </Secao>
       ) : null}
 
-      {proximas.length > 0 ? (
-        <Secao titulo="Próximas lives" contagem={proximas.length}>
-          {proximas.map(({ live }) => (
+      {outrasProximas.length > 0 ? (
+        <Secao titulo="Próximas lives" contagem={outrasProximas.length}>
+          {outrasProximas.map(({ live }) => (
             <CartaoLive
               key={live.id}
               live={live}

@@ -129,6 +129,49 @@ create table if not exists public.lives_privado (
 );
 
 -- ------------------------------------------------------------
+-- INGRESSOS — os produtos à venda de uma live
+-- ------------------------------------------------------------
+-- Uma live pode ter vários ingressos: um por dia, um passe completo,
+-- lote promocional. Cada um com seu preço e sua janela de validade.
+--
+-- A janela é em data-e-hora, não em "dia", de propósito: as finais do
+-- Mister Olympia começam 22h de sábado e terminam 3h de domingo no horário
+-- do Brasil. Com "dia" o acesso cortaria à meia-noite, bem no clímax.
+-- ------------------------------------------------------------
+create table if not exists public.ingressos (
+  id                    uuid primary key default gen_random_uuid(),
+  live_id               uuid        not null references public.lives (id) on delete cascade,
+  nome                  text        not null,
+  descricao             text        not null default '',
+
+  preco_centavos        integer     not null check (preco_centavos >= 0),
+  -- Preço cheio, para o "de / por". Só preencha se for preço realmente
+  -- praticado: riscar um valor que nunca existiu é propaganda enganosa.
+  preco_cheio_centavos  integer     check (preco_cheio_centavos is null or preco_cheio_centavos > 0),
+  -- Quando a promoção acaba. Passou disso, o site cobra o preço cheio de
+  -- verdade — o contador na tela não é enfeite.
+  promocao_ate          timestamptz,
+
+  -- Janela de acesso. Os dois nulos = passe completo (vale a live toda).
+  inicia_em             timestamptz,
+  termina_em            timestamptz,
+
+  -- Limite real de vendas. Nulo = sem limite.
+  limite                integer     check (limite is null or limite > 0),
+
+  ordem                 integer     not null default 0,
+  ativo                 boolean     not null default true,
+  criado_em             timestamptz not null default now(),
+
+  constraint ingressos_janela_coerente
+    check (termina_em is null or inicia_em is null or termina_em > inicia_em),
+  constraint ingressos_promocao_faz_sentido
+    check (promocao_ate is null or preco_cheio_centavos is not null)
+);
+
+create index if not exists ingressos_da_live_idx on public.ingressos (live_id, ordem);
+
+-- ------------------------------------------------------------
 -- COMPRAS — quem comprou o acesso a qual live
 -- ------------------------------------------------------------
 create table if not exists public.compras (
@@ -145,7 +188,38 @@ create table if not exists public.compras (
   unique (usuario_id, live_id)
 );
 
+-- Uma compra agora é de um INGRESSO, não da live inteira. A coluna é
+-- opcional para não quebrar o que já existe; o backfill logo abaixo liga
+-- as compras antigas ao ingresso padrão da live.
+alter table public.compras add column if not exists ingresso_id uuid
+  references public.ingressos (id) on delete set null;
+
+-- A regra antiga era "uma compra por live". Com vários ingressos, a pessoa
+-- pode comprar o Dia 1 e o Dia 2 — a regra passa a ser por ingresso.
+alter table public.compras drop constraint if exists compras_usuario_id_live_id_key;
+create unique index if not exists compras_uma_por_ingresso
+  on public.compras (usuario_id, ingresso_id)
+  where ingresso_id is not null;
+
 create index if not exists compras_live_idx on public.compras (live_id);
+create index if not exists compras_ingresso_idx on public.compras (ingresso_id);
+
+-- Toda live precisa de pelo menos um ingresso à venda. Lives criadas antes
+-- desta mudança ganham um padrão, com o preço que já tinham.
+insert into public.ingressos (live_id, nome, descricao, preco_centavos, ordem)
+select l.id, 'Acesso à live', '', l.preco_centavos, 0
+  from public.lives l
+ where not exists (select 1 from public.ingressos i where i.live_id = l.id);
+
+update public.compras c
+   set ingresso_id = (
+     select i.id
+       from public.ingressos i
+      where i.live_id = c.live_id
+      order by i.ordem, i.criado_em
+      limit 1
+   )
+ where c.ingresso_id is null;
 create index if not exists compras_pagamento_idx on public.compras (mp_payment_id);
 
 -- ------------------------------------------------------------
@@ -223,6 +297,7 @@ $$;
 alter table public.perfis          enable row level security;
 alter table public.lives           enable row level security;
 alter table public.lives_privado   enable row level security;
+alter table public.ingressos       enable row level security;
 alter table public.compras         enable row level security;
 alter table public.sessoes_ativas  enable row level security;
 alter table public.logs_auditoria  enable row level security;
@@ -239,6 +314,17 @@ create policy "perfil proprio" on public.perfis
 drop policy if exists "lives publicadas" on public.lives;
 create policy "lives publicadas" on public.lives
   for select using (estado <> 'rascunho');
+
+-- Os ingressos de uma live anunciada são públicos — é a vitrine.
+drop policy if exists "ingressos de lives publicas" on public.ingressos;
+create policy "ingressos de lives publicas" on public.ingressos
+  for select using (
+    exists (
+      select 1 from public.lives l
+       where l.id = ingressos.live_id
+         and l.estado <> 'rascunho'
+    )
+  );
 
 -- Cada pessoa enxerga apenas as próprias compras.
 drop policy if exists "compras proprias" on public.compras;

@@ -201,3 +201,29 @@ dias" e "dias + horário" — o dono vende acesso antes de fechar a agenda.
 `quandoAcontece()` em `src/lib/formato.ts` monta a frase e é coberta por
 testes. Ela lê a data pelo texto, sem `new Date`, porque `new Date("2026-09-18")`
 é meia-noite em UTC e viraria dia 17 no Brasil.
+
+## Ingressos (vários produtos por live)
+
+Uma live vende **vários ingressos** (tabela `ingressos`): passe completo e
+"só o sábado" ao mesmo tempo. `src/lib/ingressos.ts` é o cérebro.
+
+- **O preço nunca vem do navegador.** `comprarIngresso` recalcula com
+  `precoAgora()` antes de criar a preferência no Mercado Pago, e o webhook
+  ainda confere se o valor pago bate.
+- **`preco_cheio_centavos` + `promocao_ate`** são o riscado e o contador. Passado
+  o prazo, `precoAgora()` **passa a cobrar o preço cheio de verdade** — foi a
+  condição para existir o riscado: preço fictício só de enfeite engana o
+  comprador e é infração ao CDC. Sem `promocao_ate`, não há contador.
+- **`inicia_em`/`termina_em` são instantes (timestamptz), não dias.** As finais
+  do Olympia começam 22h de sábado e terminam de madrugada; cortar acesso à
+  meia-noite seria o pior erro possível. Os dois nulos = passe completo.
+- **`limite`** é o "restam N". Duas compras simultâneas na última vaga podem
+  passar as duas — de propósito: vender uma a mais é melhor que recusar quem
+  já pagou.
+- Quem pode assistir agora é `temAcessoAgora()` (compra paga **e** janela
+  aberta) — é o que `/api/token` pergunta. Compra antiga sem `ingresso_id`
+  vale a live inteira.
+- A **programação** na home e na página da live é gerada a partir das janelas
+  dos próprios ingressos. Fonte única: mexeu no ingresso, mudou a propaganda.
+
+O evento do dono já está pronto para colar em `docs/mister-olympia-2026.md`.

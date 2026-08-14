@@ -7,7 +7,8 @@ import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { registrar } from "@/lib/auditoria";
 import { exigirConta } from "@/lib/conta";
 import { ipResumido } from "@/lib/formato";
-import { buscarCompra, buscarLivePorSlug } from "@/lib/lives";
+import { comprouAlgumaCoisa, temAcessoAgora } from "@/lib/ingressos";
+import { buscarLivePorSlug } from "@/lib/lives";
 import { ipDoVisitante, navegadorDoVisitante } from "@/lib/requisicao";
 import { conferirSessaoUnica } from "@/lib/sessao";
 
@@ -33,8 +34,18 @@ export default async function PaginaAssistir({ params }: Props) {
     );
   }
 
-  const compra = await buscarCompra(conta.usuarioId, live.id);
-  if (compra?.status !== "aprovada") {
+  if (!(await temAcessoAgora(conta.usuarioId, live.id))) {
+    // Comprou, mas de outro dia: merece explicação, não um chute para a
+    // página de venda como se nunca tivesse pagado.
+    if (await comprouAlgumaCoisa(conta.usuarioId, live.id)) {
+      return (
+        <Recado
+          titulo="Fora da sua janela"
+          texto="Seu ingresso não cobre este momento da transmissão. Veja na página da live quais dias você comprou — dá para comprar os outros."
+          slug={slug}
+        />
+      );
+    }
     redirect(`/live/${slug}`);
   }
 
