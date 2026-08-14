@@ -24,9 +24,9 @@ export function BotaoComprar({ acao, rotulo }: Props) {
         {enviando ? "Abrindo o pagamento…" : rotulo}
       </button>
 
-      <p className="text-center text-xs text-texto-fraco">
-        Pix ou cartão, pelo Mercado Pago. O acesso é liberado automaticamente
-        assim que o pagamento é confirmado.
+      <p className="text-center text-xs leading-relaxed text-texto-apagado">
+        Pix ou cartão, pelo Mercado Pago.
+        <br />O acesso libera sozinho quando o pagamento é confirmado.
       </p>
     </form>
   );

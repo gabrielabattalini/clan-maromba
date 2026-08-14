@@ -81,13 +81,16 @@ export default async function PaginaAssistir({ params }: Props) {
     <main className="mx-auto w-full max-w-5xl px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold">{live.titulo}</h1>
-          <p className="flex items-center gap-1.5 text-xs text-destaque">
-            <span className="size-1.5 animate-pulse rounded-full bg-destaque" />
+          <span className="selo selo-vivo">
+            <span className="ponto-vivo" aria-hidden />
             Ao vivo
-          </p>
+          </span>
+          <h1 className="display mt-2 truncate text-2xl">{live.titulo}</h1>
         </div>
-        <Link className="text-sm text-texto-fraco hover:text-texto" href={`/live/${slug}`}>
+        <Link
+          className="text-sm text-texto-apagado transition-colors hover:text-texto"
+          href={`/live/${slug}`}
+        >
           Detalhes da live
         </Link>
       </div>
@@ -108,8 +111,8 @@ function Recado({
 }) {
   return (
     <main className="mx-auto w-full max-w-lg px-5 py-20 text-center">
-      <h1 className="text-xl font-bold">{titulo}</h1>
-      <p className="mt-3 text-sm text-texto-fraco">{texto}</p>
+      <h1 className="display text-3xl">{titulo}</h1>
+      <p className="mt-4 text-sm leading-relaxed text-texto-fraco">{texto}</p>
       <div className="mt-6 flex justify-center gap-3">
         {slug ? (
           <Link className="botao botao-secundario" href={`/live/${slug}`}>

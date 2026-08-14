@@ -20,16 +20,16 @@ export default async function PaginaEntrar({ searchParams }: Props) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col justify-center gap-6 px-6 py-14">
-      <header className="text-center">
-        <h1 className="text-2xl font-bold">Entrar</h1>
-        <p className="mt-1 text-sm text-texto-fraco">
+    <main className="mx-auto flex w-full max-w-sm flex-col gap-7 px-5 py-16 sm:py-24">
+      <header>
+        <h1 className="display text-4xl">Entrar</h1>
+        <p className="mt-3 text-sm leading-relaxed text-texto-fraco">
           Use a conta que você criou para comprar e assistir às lives.
         </p>
       </header>
 
       {supabaseConfigurado ? (
-        <div className="cartao p-6">
+        <div className="cartao p-6 sm:p-7">
           <FormularioConta modo="entrar" acao={entrar} voltar={destino} />
         </div>
       ) : (

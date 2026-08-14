@@ -21,29 +21,33 @@ export default async function MinhasLives() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10">
-      <h1 className="text-2xl font-bold">Minhas lives</h1>
-      <p className="mt-1 text-sm text-texto-fraco">
+    <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:py-14">
+      <h1 className="display text-4xl">Minhas lives</h1>
+      <p className="mt-3 text-sm text-texto-fraco">
         Tudo o que você comprou fica aqui.
       </p>
 
+      <div className="regua mt-8" />
+
       {itens.length === 0 ? (
-        <p className="mt-10 text-sm text-texto-fraco">
-          Você ainda não comprou nenhuma live.{" "}
-          <Link className="text-destaque hover:underline" href="/">
+        <div className="cartao mt-8 p-8 text-center">
+          <p className="display text-xl">Nada por aqui ainda</p>
+          <p className="mt-2 text-sm text-texto-fraco">
+            Você ainda não comprou nenhuma live.
+          </p>
+          <Link className="botao mt-5" href="/">
             Ver a agenda
           </Link>
-          .
-        </p>
+        </div>
       ) : (
         <ul className="mt-8 flex flex-col gap-3">
           {itens.map(({ compra, live, noAr }) => (
             <li key={compra.id} className="cartao p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <SeloEstado estado={live.estado} noAr={noAr} />
                 <span
-                  className={`text-xs font-semibold ${
-                    compra.status === "aprovada" ? "text-ok" : "text-texto-fraco"
+                  className={`numero text-xs font-semibold ${
+                    compra.status === "aprovada" ? "text-ok" : "text-texto-apagado"
                   }`}
                 >
                   {ROTULO_STATUS_COMPRA[compra.status]} ·{" "}
@@ -51,8 +55,8 @@ export default async function MinhasLives() {
                 </span>
               </div>
 
-              <h2 className="mt-3 font-bold">{live.titulo}</h2>
-              <p className="mt-1 text-xs text-texto-fraco">
+              <h2 className="display mt-3 text-xl">{live.titulo}</h2>
+              <p className="numero mt-1.5 text-xs text-texto-apagado">
                 {quandoAcontece(live)}
               </p>
 

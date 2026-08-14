@@ -1,48 +1,162 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Clan Maromba — sistema visual
+   ------------------------------------------------------------
+   Tema escuro único e assumido (é a cara do produto: transmissão
+   noturna, sala apagada, vídeo no centro). Por isso não há troca
+   claro/escuro — mas nenhuma cor fica solta: tudo sai daqui.
+
+   O preto é quente, puxado para o carvão, e o cinza tem um viés
+   para o laranja do acento. Cinza neutro de fábrica é o que faz
+   uma tela parecer não pensada.
+   ============================================================ */
+
 :root {
-  --fundo: #0a0a0b;
-  --painel: #141416;
-  --borda: #26262a;
-  --texto: #f4f4f5;
-  --texto-fraco: #a1a1aa;
-  --destaque: #ef4444;
-  --destaque-forte: #dc2626;
-  --ok: #22c55e;
-  --alerta: #eab308;
+  /* Fundos, do mais fundo ao mais alto */
+  --fundo: #0b0908;
+  --fundo-2: #110e0d;
+  --painel: #171413;
+  --painel-alto: #1f1a18;
+
+  /* Traços */
+  --borda: #2b2422;
+  --borda-forte: #3d3330;
+
+  /* Texto */
+  --texto: #f6f2ed;
+  --texto-fraco: #a69c95;
+  --texto-apagado: #7a716b;
+
+  /* Acento: laranja de ferro quente. Um só, usado com parcimônia. */
+  --destaque: #ff5a1f;
+  --destaque-forte: #e8410a;
+  --destaque-fraco: #ff8a5c;
+
+  /* Semânticos — separados do acento de propósito */
+  --ok: #5fd08a;
+  --alerta: #e8b33a;
+  --erro: #ff6b5e;
+
+  --raio: 0.5rem;
+  --raio-g: 0.75rem;
 }
 
 @theme inline {
   --color-fundo: var(--fundo);
+  --color-fundo-2: var(--fundo-2);
   --color-painel: var(--painel);
+  --color-painel-alto: var(--painel-alto);
   --color-borda: var(--borda);
+  --color-borda-forte: var(--borda-forte);
   --color-texto: var(--texto);
   --color-texto-fraco: var(--texto-fraco);
+  --color-texto-apagado: var(--texto-apagado);
   --color-destaque: var(--destaque);
   --color-destaque-forte: var(--destaque-forte);
+  --color-destaque-fraco: var(--destaque-fraco);
   --color-ok: var(--ok);
   --color-alerta: var(--alerta);
+  --color-erro: var(--erro);
+
+  --font-display: var(--fonte-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--fonte-corpo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--fonte-mono), ui-monospace, monospace;
 }
 
 html {
   color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--fundo);
   color: var(--texto);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--fonte-corpo), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* ---- Peças reutilizadas nas telas (formulários, botões, cartões) ---- */
+::selection {
+  background: var(--destaque);
+  color: #fff;
+}
+
+/* Foco visível e consistente — nunca removido, só desenhado melhor. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------- Tipografia ---------------- */
+
+.display {
+  font-family: var(--fonte-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.04;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+/* Etiqueta miúda em caixa alta. Só onde diz alguma coisa de verdade
+   (situação, seção) — não como enfeite. */
+.etiqueta {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-apagado);
+}
+
+.numero {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- Superfícies ---------------- */
 
 .cartao {
   border: 1px solid var(--borda);
   background: var(--painel);
-  border-radius: 0.75rem;
+  border-radius: var(--raio-g);
 }
+
+/* Régua fina de seção: separa sem pesar. */
+.regua {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    var(--borda-forte),
+    var(--borda) 35%,
+    transparent
+  );
+}
+
+/* Picote do cartão-ingresso: a live é um ingresso avulso, e a divisão
+   entre "o que é" e "quanto custa" empresta essa forma. */
+.picote {
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    var(--borda-forte) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 12px 1px;
+}
+
+/* ---------------- Formulários ---------------- */
 
 .rotulo {
   display: block;
@@ -55,80 +169,178 @@ body {
 .campo {
   width: 100%;
   border: 1px solid var(--borda);
-  background: var(--fundo);
+  background: var(--fundo-2);
   color: var(--texto);
-  border-radius: 0.5rem;
-  padding: 0.625rem 0.75rem;
+  border-radius: var(--raio);
+  padding: 0.6875rem 0.8125rem;
   font-size: 1rem;
+  font-family: inherit;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.campo:hover:not(:focus) {
+  border-color: var(--borda-forte);
 }
 
 .campo:focus {
   border-color: var(--destaque);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 22%, transparent);
 }
 
 .campo::placeholder {
-  color: color-mix(in srgb, var(--texto-fraco) 70%, transparent);
+  color: var(--texto-apagado);
 }
+
+/* O seletor nativo de data/hora vem branco-sobre-branco no escuro. */
+.campo::-webkit-calendar-picker-indicator {
+  filter: invert(0.75);
+  cursor: pointer;
+}
+
+/* ---------------- Botões ---------------- */
 
 .botao {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1.125rem;
+  border-radius: var(--raio);
+  padding: 0.6875rem 1.125rem;
   font-weight: 600;
   font-size: 0.9375rem;
+  line-height: 1.2;
   background: var(--destaque);
-  color: #fff;
+  color: #150804;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background 0.15s ease;
+  text-align: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .botao:hover:not(:disabled) {
   background: var(--destaque-forte);
+  color: #fff;
 }
 
 .botao:disabled {
-  opacity: 0.6;
-  cursor: progress;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .botao-secundario {
   background: transparent;
   color: var(--texto);
-  border-color: var(--borda);
+  border-color: var(--borda-forte);
 }
 
 .botao-secundario:hover:not(:disabled) {
-  background: var(--painel);
+  background: var(--painel-alto);
+  border-color: var(--texto-apagado);
+  color: var(--texto);
 }
 
+.botao-perigo {
+  background: transparent;
+  color: var(--erro);
+  border-color: color-mix(in srgb, var(--erro) 40%, transparent);
+}
+
+.botao-perigo:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--erro) 12%, transparent);
+  color: var(--erro);
+}
+
+/* ---------------- Avisos ---------------- */
+
 .aviso {
-  border-radius: 0.5rem;
-  padding: 0.75rem 0.875rem;
+  border-radius: var(--raio);
+  padding: 0.8125rem 0.9375rem;
   font-size: 0.875rem;
-  line-height: 1.4;
+  line-height: 1.5;
   border: 1px solid;
 }
 
 .aviso-erro {
-  border-color: color-mix(in srgb, var(--destaque) 45%, transparent);
-  background: color-mix(in srgb, var(--destaque) 12%, transparent);
-  color: #fca5a5;
+  border-color: color-mix(in srgb, var(--erro) 40%, transparent);
+  background: color-mix(in srgb, var(--erro) 10%, transparent);
+  color: #ffb3ab;
 }
 
 .aviso-ok {
-  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-  background: color-mix(in srgb, var(--ok) 12%, transparent);
-  color: #86efac;
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  color: #a8e8c2;
 }
 
 .aviso-atencao {
-  border-color: color-mix(in srgb, var(--alerta) 45%, transparent);
-  background: color-mix(in srgb, var(--alerta) 12%, transparent);
-  color: #fde047;
+  border-color: color-mix(in srgb, var(--alerta) 40%, transparent);
+  background: color-mix(in srgb, var(--alerta) 10%, transparent);
+  color: #f2d488;
+}
+
+/* ---------------- Selos de situação ---------------- */
+
+.selo {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.4375rem;
+  border-radius: 999px;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.selo-neutro {
+  background: var(--painel-alto);
+  color: var(--texto-fraco);
+  border: 1px solid var(--borda);
+}
+
+.selo-vivo {
+  background: color-mix(in srgb, var(--destaque) 15%, transparent);
+  color: var(--destaque-fraco);
+  border: 1px solid color-mix(in srgb, var(--destaque) 40%, transparent);
+}
+
+.ponto-vivo {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 999px;
+  background: var(--destaque);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--destaque) 70%, transparent);
+  animation: pulsar 2s ease-out infinite;
+}
+
+@keyframes pulsar {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--destaque) 70%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 0.375rem transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Entrada discreta do herói. Uma vez, no carregamento — nada de
+   animação espalhada pela página. */
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.surgir {
+  animation: surgir 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

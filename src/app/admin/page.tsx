@@ -32,9 +32,9 @@ export default async function PainelAdmin() {
     <main className="mx-auto w-full max-w-4xl px-5 py-10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Painel do dono</h1>
-          <p className="mt-1 text-sm text-texto-fraco">
-            Aqui você cria as lives, pega os dados do OBS e acompanha quem comprou.
+          <h1 className="display text-4xl">Painel do dono</h1>
+          <p className="mt-2 text-sm text-texto-fraco">
+            Crie as lives, pegue os dados do OBS e acompanhe quem comprou.
           </p>
         </div>
         <div className="flex gap-2">
@@ -67,14 +67,16 @@ export default async function PainelAdmin() {
       ) : null}
 
       <section className="cartao mt-8 p-6">
-        <h2 className="mb-4 text-base font-bold">Nova live</h2>
+        <h2 className="mb-5 display text-xl">Nova live</h2>
         <FormularioNovaLive />
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-texto-fraco">
-          Suas lives
-        </h2>
+        <div className="mb-5 flex items-baseline gap-3">
+          <h2 className="etiqueta !text-texto-fraco">Suas lives</h2>
+          <span className="numero etiqueta">{lives.length}</span>
+          <span className="regua flex-1" />
+        </div>
 
         {lives.length === 0 ? (
           <p className="text-sm text-texto-fraco">
@@ -90,16 +92,19 @@ export default async function PainelAdmin() {
                 >
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{live.titulo}</p>
-                    <p className="text-xs text-texto-fraco">
+                    <p className="numero mt-0.5 text-xs text-texto-apagado">
                       {quandoAcontece(live)} · {precoEmReais(live.preco_centavos)}
                     </p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider ${
-                      noAr ? "bg-destaque/15 text-destaque" : "bg-fundo text-texto-fraco"
-                    }`}
-                  >
-                    {noAr ? "No ar" : ROTULO_ESTADO[live.estado]}
+                  <span className={`selo shrink-0 ${noAr ? "selo-vivo" : "selo-neutro"}`}>
+                    {noAr ? (
+                      <>
+                        <span className="ponto-vivo" aria-hidden />
+                        No ar
+                      </>
+                    ) : (
+                      ROTULO_ESTADO[live.estado]
+                    )}
                   </span>
                 </Link>
               </li>

@@ -37,7 +37,7 @@ export function BotaoApagarLive({ acao, titulo }: Props) {
           </p>
           <div className="flex flex-wrap gap-2">
             <form action={apagar}>
-              <button className="botao" type="submit" disabled={apagando}>
+              <button className="botao botao-perigo" type="submit" disabled={apagando}>
                 {apagando ? "Apagando…" : "Sim, apagar"}
               </button>
             </form>
