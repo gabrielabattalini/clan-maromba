@@ -441,3 +441,234 @@ export async function alternarBanimento(
 
   revalidatePath("/admin");
 }
+
+// ------------------------------------------------------------
+// Bolão
+// ------------------------------------------------------------
+
+export async function salvarPremioDoBolao(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const premio = String(dados.get("premio") ?? "").trim().slice(0, 300);
+
+  const { error } = await clienteAdmin()
+    .from("lives")
+    .update({ bolao_premio: premio })
+    .eq("id", liveId);
+
+  if (error) return { erro: "Não consegui salvar o prêmio." };
+
+  revalidatePath(`/admin/live/${liveId}`);
+  return { aviso: premio ? "Prêmio salvo." : "Prêmio removido." };
+}
+
+export async function criarCategoriaDoBolao(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const nome = String(dados.get("nome") ?? "").trim();
+  const fechaEm = instanteEmBrasilia(String(dados.get("fecha_em") ?? ""));
+  const ordem = Number(String(dados.get("ordem") ?? "0").trim() || 0);
+
+  if (nome.length < 2) return { erro: "Dê um nome à categoria. Ex.: Men's Open" };
+  if (!fechaEm) return { erro: "Diga a hora em que os palpites fecham." };
+
+  const { error } = await clienteAdmin().from("bolao_categorias").insert({
+    live_id: liveId,
+    nome,
+    fecha_em: fechaEm,
+    ordem: Number.isFinite(ordem) ? ordem : 0,
+  });
+
+  if (error) {
+    console.error("[bolao] falha ao criar categoria:", error.message);
+    return { erro: "Não consegui criar a categoria." };
+  }
+
+  revalidatePath(`/admin/live/${liveId}`);
+  return { aviso: `Categoria ${nome} criada.` };
+}
+
+export async function apagarCategoriaDoBolao(
+  liveId: string,
+  categoriaId: string,
+): Promise<void> {
+  await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  // Apagar a categoria levaria os palpites junto (cascade). Enquanto houver
+  // gente participando, isso apagaria o jogo dos outros sem aviso.
+  const { count } = await supabase
+    .from("bolao_palpites")
+    .select("id", { count: "exact", head: true })
+    .eq("categoria_id", categoriaId);
+
+  if ((count ?? 0) > 0) {
+    revalidatePath(`/admin/live/${liveId}`);
+    return;
+  }
+
+  await supabase.from("bolao_categorias").delete().eq("id", categoriaId);
+  revalidatePath(`/admin/live/${liveId}`);
+}
+
+/**
+ * Substitui a lista de atletas de uma categoria por uma lista colada.
+ *
+ * Depois que existe palpite, atleta que já está na lista não sai mais: ele é
+ * referenciado pelos palpites, e sumir com ele apagaria o palpite de quem
+ * escolheu aquele nome. Nome novo pode entrar a qualquer momento.
+ */
+export async function salvarAtletas(
+  categoriaId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const nomes = String(dados.get("atletas") ?? "")
+    .split("\n")
+    .map((linha) => linha.trim())
+    .filter(Boolean)
+    .slice(0, 60);
+
+  if (nomes.length < 5) {
+    return { erro: "Precisa de pelo menos 5 atletas — o palpite é um top 5." };
+  }
+  if (new Set(nomes.map((n) => n.toLowerCase())).size !== nomes.length) {
+    return { erro: "Tem nome repetido na lista." };
+  }
+
+  const { data: atuais } = await supabase
+    .from("bolao_atletas")
+    .select("id, nome")
+    .eq("categoria_id", categoriaId)
+    .returns<{ id: string; nome: string }[]>();
+
+  const { count } = await supabase
+    .from("bolao_palpites")
+    .select("id", { count: "exact", head: true })
+    .eq("categoria_id", categoriaId);
+
+  const temPalpite = (count ?? 0) > 0;
+  const existentes = new Map((atuais ?? []).map((a) => [a.nome.toLowerCase(), a]));
+
+  const paraRemover = (atuais ?? []).filter(
+    (a) => !nomes.some((n) => n.toLowerCase() === a.nome.toLowerCase()),
+  );
+
+  if (temPalpite && paraRemover.length > 0) {
+    return {
+      erro: `Já tem palpite nesta categoria, então não dá para tirar atleta da lista (${paraRemover
+        .map((a) => a.nome)
+        .join(", ")}). Você ainda pode acrescentar nomes.`,
+    };
+  }
+
+  if (paraRemover.length > 0) {
+    await supabase
+      .from("bolao_atletas")
+      .delete()
+      .in("id", paraRemover.map((a) => a.id));
+  }
+
+  // A ordem da lista colada vira a ordem de exibição.
+  const novos = nomes
+    .map((nome, indice) => ({ nome, indice }))
+    .filter(({ nome }) => !existentes.has(nome.toLowerCase()));
+
+  if (novos.length > 0) {
+    const { error } = await supabase.from("bolao_atletas").insert(
+      novos.map(({ nome, indice }) => ({
+        categoria_id: categoriaId,
+        nome,
+        ordem: indice,
+      })),
+    );
+    if (error) {
+      console.error("[bolao] falha ao inserir atletas:", error.message);
+      return { erro: "Não consegui salvar a lista." };
+    }
+  }
+
+  for (const [posicao, nome] of nomes.entries()) {
+    const jaExistia = existentes.get(nome.toLowerCase());
+    if (jaExistia) {
+      await supabase
+        .from("bolao_atletas")
+        .update({ ordem: posicao })
+        .eq("id", jaExistia.id);
+    }
+  }
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  return { aviso: `${nomes.length} atletas na lista.` };
+}
+
+/** Publica o top 5 oficial. É o que faz o ranking existir. */
+export async function definirResultado(
+  categoriaId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const posicoes = ["atleta_1", "atleta_2", "atleta_3", "atleta_4", "atleta_5"].map(
+    (campo) => String(dados.get(campo) ?? "").trim(),
+  );
+
+  if (posicoes.some((id) => !id)) {
+    return { erro: "Preencha as cinco posições." };
+  }
+  if (new Set(posicoes).size !== posicoes.length) {
+    return { erro: "Não repita o mesmo atleta em duas posições." };
+  }
+
+  const { data: atletas } = await supabase
+    .from("bolao_atletas")
+    .select("id")
+    .eq("categoria_id", categoriaId)
+    .returns<{ id: string }[]>();
+
+  const daCategoria = new Set((atletas ?? []).map((a) => a.id));
+  if (posicoes.some((id) => !daCategoria.has(id))) {
+    return { erro: "Atleta de outra categoria. Recarregue a página." };
+  }
+
+  const { error } = await supabase.from("bolao_resultados").upsert(
+    {
+      categoria_id: categoriaId,
+      atleta_1: posicoes[0],
+      atleta_2: posicoes[1],
+      atleta_3: posicoes[2],
+      atleta_4: posicoes[3],
+      atleta_5: posicoes[4],
+      publicado_em: new Date().toISOString(),
+    },
+    { onConflict: "categoria_id" },
+  );
+
+  if (error) {
+    console.error("[bolao] falha ao publicar resultado:", error.message);
+    return { erro: "Não consegui publicar o resultado." };
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    acao: "admin_publicou_resultado",
+    ip: await ipDoVisitante(),
+    detalhes: { categoria: categoriaId },
+  });
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  return { aviso: "Resultado publicado. O ranking já está valendo." };
+}

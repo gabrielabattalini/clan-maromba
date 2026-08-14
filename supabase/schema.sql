@@ -251,6 +251,87 @@ create table if not exists public.logs_auditoria (
 create index if not exists logs_recentes_idx on public.logs_auditoria (criado_em desc);
 
 -- ------------------------------------------------------------
+-- BOLÃO — palpite grátis nas categorias, com ranking por pontos
+-- ------------------------------------------------------------
+-- Entrada é de graça e o prêmio sai do bolso do dono: assim é promoção,
+-- não aposta. Cobrar para participar e pagar o vencedor com o bolo
+-- arrecadado exigiria licença federal e é proibido pelo Mercado Pago —
+-- perderíamos a conta que recebe os ingressos.
+
+create table if not exists public.bolao_categorias (
+  id          uuid primary key default gen_random_uuid(),
+  live_id     uuid        not null references public.lives (id) on delete cascade,
+  nome        text        not null,
+  -- Depois deste instante o palpite tranca. Sem isso alguém palpitaria
+  -- já sabendo o resultado.
+  fecha_em    timestamptz not null,
+  ordem       integer     not null default 0,
+  criado_em   timestamptz not null default now()
+);
+
+create index if not exists bolao_categorias_da_live_idx
+  on public.bolao_categorias (live_id, ordem);
+
+create table if not exists public.bolao_atletas (
+  id            uuid primary key default gen_random_uuid(),
+  categoria_id  uuid    not null references public.bolao_categorias (id) on delete cascade,
+  nome          text    not null,
+  ordem         integer not null default 0
+);
+
+create index if not exists bolao_atletas_da_categoria_idx
+  on public.bolao_atletas (categoria_id, ordem);
+
+-- O palpite tem as cinco posições em colunas, e não uma linha por posição:
+-- é sempre exatamente um top 5, e assim o banco garante isso sozinho.
+create table if not exists public.bolao_palpites (
+  id            uuid primary key default gen_random_uuid(),
+  categoria_id  uuid not null references public.bolao_categorias (id) on delete cascade,
+  usuario_id    uuid not null references auth.users (id) on delete cascade,
+  atleta_1      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_2      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_3      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_4      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_5      uuid not null references public.bolao_atletas (id) on delete cascade,
+  criado_em     timestamptz not null default now(),
+  atualizado_em timestamptz not null default now(),
+  unique (categoria_id, usuario_id),
+  -- Cinco atletas diferentes. Comparação par a par porque o Postgres não
+  -- aceita subconsulta dentro de check.
+  constraint bolao_palpite_sem_repetido check (
+    atleta_1 <> atleta_2 and atleta_1 <> atleta_3 and atleta_1 <> atleta_4 and
+    atleta_1 <> atleta_5 and atleta_2 <> atleta_3 and atleta_2 <> atleta_4 and
+    atleta_2 <> atleta_5 and atleta_3 <> atleta_4 and atleta_3 <> atleta_5 and
+    atleta_4 <> atleta_5
+  )
+);
+
+-- `criado_em` nunca muda quando a pessoa corrige o palpite: é ele que
+-- desempata o ranking, então tem de valer o primeiro envio.
+create index if not exists bolao_palpites_da_categoria_idx
+  on public.bolao_palpites (categoria_id);
+
+create table if not exists public.bolao_resultados (
+  categoria_id  uuid primary key references public.bolao_categorias (id) on delete cascade,
+  atleta_1      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_2      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_3      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_4      uuid not null references public.bolao_atletas (id) on delete cascade,
+  atleta_5      uuid not null references public.bolao_atletas (id) on delete cascade,
+  publicado_em  timestamptz not null default now(),
+  constraint bolao_resultado_sem_repetido check (
+    atleta_1 <> atleta_2 and atleta_1 <> atleta_3 and atleta_1 <> atleta_4 and
+    atleta_1 <> atleta_5 and atleta_2 <> atleta_3 and atleta_2 <> atleta_4 and
+    atleta_2 <> atleta_5 and atleta_3 <> atleta_4 and atleta_3 <> atleta_5 and
+    atleta_4 <> atleta_5
+  )
+);
+
+-- O prêmio é texto livre porque quem escreve é o dono, e ele muda de
+-- evento para evento ("acesso às próximas 3 lives", "R$ 500 no Pix").
+alter table public.lives add column if not exists bolao_premio text not null default '';
+
+-- ------------------------------------------------------------
 -- LIMITES_TAXA — trava tentativa em excesso (login, compra, token)
 -- ------------------------------------------------------------
 create table if not exists public.limites_taxa (
@@ -299,6 +380,10 @@ alter table public.lives           enable row level security;
 alter table public.lives_privado   enable row level security;
 alter table public.ingressos       enable row level security;
 alter table public.compras         enable row level security;
+alter table public.bolao_categorias enable row level security;
+alter table public.bolao_atletas    enable row level security;
+alter table public.bolao_palpites   enable row level security;
+alter table public.bolao_resultados enable row level security;
 alter table public.sessoes_ativas  enable row level security;
 alter table public.logs_auditoria  enable row level security;
 alter table public.limites_taxa    enable row level security;
@@ -323,6 +408,39 @@ create policy "ingressos de lives publicas" on public.ingressos
       select 1 from public.lives l
        where l.id = ingressos.live_id
          and l.estado <> 'rascunho'
+    )
+  );
+
+-- Categorias, atletas e resultado do bolão são propaganda: público.
+drop policy if exists "bolao categorias publicas" on public.bolao_categorias;
+create policy "bolao categorias publicas" on public.bolao_categorias
+  for select using (
+    exists (
+      select 1 from public.lives l
+       where l.id = bolao_categorias.live_id
+         and l.estado <> 'rascunho'
+    )
+  );
+
+drop policy if exists "bolao atletas publicos" on public.bolao_atletas;
+create policy "bolao atletas publicos" on public.bolao_atletas
+  for select using (true);
+
+drop policy if exists "bolao resultados publicos" on public.bolao_resultados;
+create policy "bolao resultados publicos" on public.bolao_resultados
+  for select using (true);
+
+-- Palpite alheio só depois que a categoria fecha. Antes disso, ver o
+-- palpite dos outros seria copiar de quem entende — e o ranking perderia
+-- a graça. Depois de fechada, é público: é o que faz o ranking existir.
+drop policy if exists "palpite proprio ou ja fechado" on public.bolao_palpites;
+create policy "palpite proprio ou ja fechado" on public.bolao_palpites
+  for select using (
+    auth.uid() = usuario_id
+    or exists (
+      select 1 from public.bolao_categorias c
+       where c.id = bolao_palpites.categoria_id
+         and c.fecha_em <= now()
     )
   );
 

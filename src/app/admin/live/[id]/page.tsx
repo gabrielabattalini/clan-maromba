@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   alternarBanimento,
   alternarIngresso,
+  apagarCategoriaDoBolao,
   apagarLive,
   criarCanalDeTransmissao,
   derrubarSessao,
@@ -12,7 +13,9 @@ import {
 } from "@/app/admin/acoes";
 import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
+import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
 import { FormularioIngresso } from "@/components/FormularioIngresso";
+import { listarCategorias, listarPalpites, listarResultados } from "@/lib/bolao";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
@@ -48,6 +51,20 @@ export default async function PaginaLiveAdmin({ params }: Props) {
     : false;
 
   const vitrine = await montarVitrine(live.id);
+
+  const categoriasDoBolao = await listarCategorias(live.id);
+  const idsDasCategorias = categoriasDoBolao.map((c) => c.id);
+  const [palpitesDoBolao, resultadosDoBolao] = await Promise.all([
+    listarPalpites(idsDasCategorias),
+    listarResultados(idsDasCategorias),
+  ]);
+
+  const contagemDePalpites = palpitesDoBolao.reduce((mapa, palpite) => {
+    mapa.set(palpite.categoria_id, (mapa.get(palpite.categoria_id) ?? 0) + 1);
+    return mapa;
+  }, new Map<string, number>());
+
+  const resultadosPublicados = new Set(resultadosDoBolao.map((r) => r.categoria_id));
 
   const { data: compradores } = await clienteAdmin()
     .from("compras")
@@ -254,6 +271,86 @@ export default async function PaginaLiveAdmin({ params }: Props) {
           <h3 className="mb-4 text-sm font-semibold">Novo ingresso</h3>
           <FormularioIngresso liveId={live.id} />
         </div>
+      </section>
+
+      {/* ---------------- Bolão ---------------- */}
+      <section className="cartao mt-6 p-6">
+        <h2 className="display text-xl">Bolão</h2>
+        <p className="mt-1 text-sm text-texto-fraco">
+          Palpite grátis no top 5 de cada categoria, com ranking por pontos.
+          Serve para trazer gente e segurar quem está assistindo — quem paga o
+          prêmio é você, não os participantes.
+        </p>
+
+        {categoriasDoBolao.length > 0 ? (
+          <ul className="mt-5 flex flex-col gap-2">
+            {categoriasDoBolao.map((categoria) => (
+              <li
+                key={categoria.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borda px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{categoria.nome}</p>
+                  <p className="numero mt-0.5 text-xs text-texto-apagado">
+                    Fecha{" "}
+                    {janelaLegivel(categoria.fecha_em, null).replace(
+                      "A partir de ",
+                      "",
+                    )}{" "}
+                    · {contagemDePalpites.get(categoria.id) ?? 0} palpites ·{" "}
+                    {resultadosPublicados.has(categoria.id)
+                      ? "resultado publicado"
+                      : "sem resultado"}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <Link
+                    className="botao botao-secundario !px-3 !py-1.5 !text-xs"
+                    href={`/admin/bolao/${categoria.id}`}
+                  >
+                    Atletas e resultado
+                  </Link>
+                  {(contagemDePalpites.get(categoria.id) ?? 0) === 0 ? (
+                    <form
+                      action={apagarCategoriaDoBolao.bind(null, live.id, categoria.id)}
+                    >
+                      <button
+                        className="botao botao-secundario !px-3 !py-1.5 !text-xs"
+                        type="submit"
+                      >
+                        Apagar
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-texto-fraco">
+            Nenhuma categoria ainda. Crie uma para o bolão aparecer no site.
+          </p>
+        )}
+
+        <div className="mt-6 border-t border-borda pt-6">
+          <h3 className="mb-4 text-sm font-semibold">Nova categoria</h3>
+          <FormularioCategoria liveId={live.id} />
+        </div>
+
+        <div className="mt-6 border-t border-borda pt-6">
+          <h3 className="text-sm font-semibold">Prêmio</h3>
+          <FormularioPremio liveId={live.id} premioAtual={live.bolao_premio} />
+        </div>
+
+        {categoriasDoBolao.length > 0 ? (
+          <p className="mt-5 text-sm text-texto-fraco">
+            Página pública:{" "}
+            <Link className="hover:underline" href={`/bolao/${live.slug}`}>
+              /bolao/{live.slug}
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       {/* ---------------- Apagar ---------------- */}

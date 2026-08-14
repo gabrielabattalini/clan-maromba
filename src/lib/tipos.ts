@@ -25,6 +25,8 @@ export type Live = {
   hora: string | null;
   preco_centavos: number;
   estado: EstadoLive;
+  /** Texto livre do prêmio do bolão. Vazio = não anuncia prêmio. */
+  bolao_premio: string;
   criado_em: string;
 };
 
@@ -75,6 +77,60 @@ export type IngressoNaVitrine = {
   esgotado: boolean;
   /** Já comprado por quem está olhando. */
   jaTenho: boolean;
+};
+
+export type BolaoCategoria = {
+  id: string;
+  live_id: string;
+  nome: string;
+  /** Depois deste instante o palpite tranca. */
+  fecha_em: string;
+  ordem: number;
+  criado_em: string;
+};
+
+export type BolaoAtleta = {
+  id: string;
+  categoria_id: string;
+  nome: string;
+  ordem: number;
+};
+
+/** As cinco posições, do 1º ao 5º. Serve para palpite e para resultado. */
+export type TopCinco = [string, string, string, string, string];
+
+export type BolaoPalpite = {
+  id: string;
+  categoria_id: string;
+  usuario_id: string;
+  atleta_1: string;
+  atleta_2: string;
+  atleta_3: string;
+  atleta_4: string;
+  atleta_5: string;
+  criado_em: string;
+  atualizado_em: string;
+};
+
+export type BolaoResultado = {
+  categoria_id: string;
+  atleta_1: string;
+  atleta_2: string;
+  atleta_3: string;
+  atleta_4: string;
+  atleta_5: string;
+  publicado_em: string;
+};
+
+/** Uma linha da classificação, já somada e ordenada. */
+export type LinhaDoRanking = {
+  usuarioId: string;
+  apelido: string;
+  pontos: number;
+  /** Quantas posições exatas acertou — primeiro critério de desempate. */
+  exatos: number;
+  /** Primeiro envio; desempata quem empatou em tudo. */
+  desde: string;
 };
 
 export type Compra = {
