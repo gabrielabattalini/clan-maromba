@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Player } from "@/components/Player";
+import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { registrar } from "@/lib/auditoria";
 import { exigirConta } from "@/lib/conta";
 import { ipResumido } from "@/lib/formato";
@@ -37,14 +38,14 @@ export default async function PaginaAssistir({ params }: Props) {
     redirect(`/live/${slug}`);
   }
 
-  if (live.estado !== "no_ar") {
+  if (!(await liveEstaNoAr(live))) {
     return (
       <Recado
         titulo={live.titulo}
         texto={
           live.estado === "encerrada"
             ? "Esta transmissão foi encerrada."
-            : "A transmissão ainda não começou. Volte no horário combinado."
+            : "A transmissão ainda não começou. Assim que o canal entrar no ar, esta página libera sozinha — é só recarregar."
         }
         slug={slug}
       />

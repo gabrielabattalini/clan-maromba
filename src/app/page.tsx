@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CartaoLive } from "@/components/CartaoLive";
+import { marcarQuaisEstaoNoAr } from "@/lib/ao-vivo";
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { listarLivesPublicas, listarMinhasLives } from "@/lib/lives";
@@ -16,9 +17,12 @@ export default async function Home() {
     minhas.filter((i) => i.compra.status === "aprovada").map((i) => i.live.id),
   );
 
-  const noAr = lives.filter((l) => l.estado === "no_ar");
-  const proximas = lives.filter((l) => l.estado === "anunciada");
-  const encerradas = lives.filter((l) => l.estado === "encerrada");
+  // Quem diz se uma live está no ar é a Cloudflare, não um botão do painel.
+  const comSituacao = await marcarQuaisEstaoNoAr(lives);
+
+  const noAr = comSituacao.filter((i) => i.noAr);
+  const proximas = comSituacao.filter((i) => !i.noAr && i.live.estado !== "encerrada");
+  const encerradas = comSituacao.filter((i) => !i.noAr && i.live.estado === "encerrada");
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-12 sm:py-16">
@@ -51,24 +55,34 @@ export default async function Home() {
 
       {noAr.length > 0 ? (
         <Secao titulo="Acontecendo agora">
-          {noAr.map((live) => (
-            <CartaoLive key={live.id} live={live} comprada={compradas.has(live.id)} />
+          {noAr.map(({ live }) => (
+            <CartaoLive key={live.id} live={live} noAr comprada={compradas.has(live.id)} />
           ))}
         </Secao>
       ) : null}
 
       {proximas.length > 0 ? (
         <Secao titulo="Próximas lives">
-          {proximas.map((live) => (
-            <CartaoLive key={live.id} live={live} comprada={compradas.has(live.id)} />
+          {proximas.map(({ live }) => (
+            <CartaoLive
+              key={live.id}
+              live={live}
+              noAr={false}
+              comprada={compradas.has(live.id)}
+            />
           ))}
         </Secao>
       ) : null}
 
       {encerradas.length > 0 ? (
         <Secao titulo="Já aconteceram">
-          {encerradas.map((live) => (
-            <CartaoLive key={live.id} live={live} comprada={compradas.has(live.id)} />
+          {encerradas.map(({ live }) => (
+            <CartaoLive
+              key={live.id}
+              live={live}
+              noAr={false}
+              comprada={compradas.has(live.id)}
+            />
           ))}
         </Secao>
       ) : null}

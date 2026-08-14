@@ -147,3 +147,19 @@ acesso de graça, então não mexa nela sem rodar `npm test`.
 - `src/app/api/token/route.ts` — emite o token de 5 min do player.
 - `src/components/Player.tsx` — HLS.js com loader que troca o token a cada
   pedido, heartbeat de sessão e marca d'água que se recria se for removida.
+- `src/lib/ao-vivo.ts` — decide se uma live está no ar. **Não existe botão
+  "No ar" no painel**: quem responde é a Cloudflare (`estaTransmitindo`, com
+  cache de 10 s). O painel só alterna `rascunho` × `anunciada`. Decisão do dono
+  em 14/08/2026 — esquecer de clicar um botão no dia da live deixaria todos os
+  compradores na porta. `encerrada` continua existindo e é ajustado direto no
+  banco; `no_ar` gravado à mão no banco funciona como liberação manual de
+  emergência.
+
+## Como uma live guarda a data
+
+`lives` tem três campos **todos opcionais**: `dia_inicio` (date), `dia_fim`
+(date) e `hora` (time). Isso cobre "ainda não sei quando", "só o dia", "vários
+dias" e "dias + horário" — o dono vende acesso antes de fechar a agenda.
+`quandoAcontece()` em `src/lib/formato.ts` monta a frase e é coberta por
+testes. Ela lê a data pelo texto, sem `new Date`, porque `new Date("2026-09-18")`
+é meia-noite em UTC e viraria dia 17 no Brasil.

@@ -7,15 +7,85 @@ export function precoEmReais(centavos: number): string {
   });
 }
 
-export function dataPorExtenso(iso: string | null): string {
-  if (!iso) return "Data a definir";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  });
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+
+/**
+ * Lê "2026-09-18" sem passar pelo `new Date`.
+ *
+ * `new Date("2026-09-18")` é interpretado como meia-noite em UTC, o que no
+ * Brasil cai no dia 17 — o clássico erro de um dia a menos. Como aqui a data
+ * é um dia do calendário (não um instante), ler os números direto do texto é
+ * o certo.
+ */
+function partesDoDia(iso: string): { dia: number; mes: number; ano: number } | null {
+  const achado = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!achado) return null;
+  return { ano: Number(achado[1]), mes: Number(achado[2]), dia: Number(achado[3]) };
+}
+
+/** "21:00:00" → "21h"; "21:30:00" → "21h30". */
+function horaLegivel(hora: string): string {
+  const achado = /^(\d{1,2}):(\d{2})/.exec(hora);
+  if (!achado) return hora;
+  const minutos = achado[2]!;
+  return minutos === "00" ? `${Number(achado[1])}h` : `${Number(achado[1])}h${minutos}`;
+}
+
+type QuandoAcontecem = {
+  dia_inicio: string | null;
+  dia_fim: string | null;
+  hora: string | null;
+};
+
+/**
+ * Frase de quando a live acontece, aceitando tudo em aberto.
+ *
+ *   (nada)                       → "Data a definir"
+ *   18/09                        → "18 de setembro"
+ *   18/09 às 21h                 → "18 de setembro, a partir das 21h"
+ *   18/09 a 21/09                → "18 a 21 de setembro"
+ *   28/09 a 02/10                → "28 de setembro a 2 de outubro"
+ */
+export function quandoAcontece(live: QuandoAcontecem): string {
+  const inicio = live.dia_inicio ? partesDoDia(live.dia_inicio) : null;
+  const complemento = live.hora ? `, a partir das ${horaLegivel(live.hora)}` : "";
+
+  if (!inicio) {
+    return live.hora ? `Data a definir${complemento}` : "Data a definir";
+  }
+
+  const fim = live.dia_fim ? partesDoDia(live.dia_fim) : null;
+  const anoAtual = new Date().getFullYear();
+  const mesmoDia =
+    !fim || (fim.dia === inicio.dia && fim.mes === inicio.mes && fim.ano === inicio.ano);
+
+  const comAno = (p: { dia: number; mes: number; ano: number }, forcar = false) =>
+    `${p.dia} de ${MESES[p.mes - 1]}${p.ano !== anoAtual || forcar ? ` de ${p.ano}` : ""}`;
+
+  let texto: string;
+  if (mesmoDia) {
+    texto = comAno(inicio);
+  } else if (fim!.mes === inicio.mes && fim!.ano === inicio.ano) {
+    texto = `${inicio.dia} a ${comAno(fim!)}`;
+  } else {
+    const anosDiferentes = inicio.ano !== fim!.ano;
+    texto = `${comAno(inicio, anosDiferentes)} a ${comAno(fim!)}`;
+  }
+
+  return texto + complemento;
 }
 
 export function dataCurta(iso: string | null): string {

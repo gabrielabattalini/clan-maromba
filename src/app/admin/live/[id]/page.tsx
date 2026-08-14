@@ -12,7 +12,7 @@ import {
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
-import { dataCurta, precoEmReais } from "@/lib/formato";
+import { dataCurta, precoEmReais, quandoAcontece } from "@/lib/formato";
 import { buscarDadosPrivados, buscarLivePorId } from "@/lib/lives";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { ROTULO_ESTADO, ROTULO_STATUS_COMPRA, type StatusCompra } from "@/lib/tipos";
@@ -63,14 +63,18 @@ export default async function PaginaLiveAdmin({ params }: Props) {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">{live.titulo}</h1>
           <p className="mt-1 text-sm text-texto-fraco">
-            {dataCurta(live.comeca_em)} · {precoEmReais(live.preco_centavos)} ·{" "}
+            {quandoAcontece(live)} · {precoEmReais(live.preco_centavos)} ·{" "}
             <Link className="hover:underline" href={`/live/${live.slug}`}>
               /live/{live.slug}
             </Link>
           </p>
         </div>
-        <span className="rounded-full bg-painel px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-texto-fraco">
-          {ROTULO_ESTADO[live.estado]}
+        <span
+          className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${
+            transmitindo ? "bg-destaque/15 text-destaque" : "bg-painel text-texto-fraco"
+          }`}
+        >
+          {transmitindo ? "No ar" : ROTULO_ESTADO[live.estado]}
         </span>
       </header>
 
@@ -79,12 +83,11 @@ export default async function PaginaLiveAdmin({ params }: Props) {
         <h2 className="text-base font-bold">Situação</h2>
         <p className="mt-1 text-sm text-texto-fraco">
           <strong>Rascunho:</strong> só você vê. <strong>Anunciada:</strong> aparece
-          na home e já pode ser comprada. <strong>No ar:</strong> libera o player
-          para quem comprou. <strong>Encerrada:</strong> fecha a transmissão.
+          na home e já pode ser comprada.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {(["rascunho", "anunciada", "no_ar", "encerrada"] as const).map((estado) => (
+          {(["rascunho", "anunciada"] as const).map((estado) => (
             <form key={estado} action={mudarEstadoDaLive.bind(null, live.id)}>
               <input type="hidden" name="estado" value={estado} />
               <button
@@ -97,20 +100,27 @@ export default async function PaginaLiveAdmin({ params }: Props) {
             </form>
           ))}
         </div>
+
+        <div className="mt-5 border-t border-borda pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">Transmissão</span>
+            <span
+              className={`text-sm font-bold ${transmitindo ? "text-ok" : "text-texto-fraco"}`}
+            >
+              {transmitindo ? "● No ar agora" : "○ Fora do ar"}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm text-texto-fraco">
+            Isto é automático: quem responde é a Cloudflare. Assim que o seu OBS
+            conectar, o player libera sozinho para quem comprou — e trava sozinho
+            quando você desligar. Você não precisa apertar nada no dia da live.
+          </p>
+        </div>
       </section>
 
       {/* ---------------- OBS ---------------- */}
       <section className="cartao mt-6 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-bold">Dados para o OBS</h2>
-          {privado?.cf_input_uid ? (
-            <span
-              className={`text-xs font-semibold ${transmitindo ? "text-ok" : "text-texto-fraco"}`}
-            >
-              {transmitindo ? "● OBS conectado" : "○ OBS desconectado"}
-            </span>
-          ) : null}
-        </div>
+        <h2 className="text-base font-bold">Dados para o OBS</h2>
 
         {privado?.cf_rtmps_url && privado.cf_stream_key ? (
           <>

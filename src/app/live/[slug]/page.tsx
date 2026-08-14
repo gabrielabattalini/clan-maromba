@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 import { BotaoComprar } from "@/components/BotaoComprar";
 import { SeloEstado } from "@/components/CartaoLive";
 import { comprarAcesso } from "@/lib/acoes/compra";
+import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { mercadoPagoConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
-import { dataPorExtenso, precoEmReais } from "@/lib/formato";
+import { precoEmReais, quandoAcontece } from "@/lib/formato";
 import { buscarCompra, buscarLivePorSlug } from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
 
   const compra = conta ? await buscarCompra(conta.usuarioId, live.id) : null;
   const temAcesso = compra?.status === "aprovada";
+  const noAr = await liveEstaNoAr(live);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10">
@@ -46,7 +48,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
       </Link>
 
       <div className="mt-5 flex items-center gap-3">
-        <SeloEstado estado={live.estado} />
+        <SeloEstado estado={live.estado} noAr={noAr} />
         {live.estado === "rascunho" ? (
           <span className="text-xs font-semibold text-alerta">
             Rascunho — só você enxerga esta página
@@ -55,7 +57,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
       </div>
 
       <h1 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">{live.titulo}</h1>
-      <p className="mt-2 text-sm text-texto-fraco">{dataPorExtenso(live.comeca_em)}</p>
+      <p className="mt-2 text-sm text-texto-fraco">{quandoAcontece(live)}</p>
 
       {live.descricao ? (
         <p className="mt-6 whitespace-pre-line leading-relaxed text-texto-fraco">
@@ -87,7 +89,7 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
         {temAcesso ? (
           <>
             <p className="text-center font-semibold text-ok">✓ Você tem acesso a esta live</p>
-            {live.estado === "no_ar" ? (
+            {noAr ? (
               <Link className="botao w-full !py-3 !text-base" href={`/assistir/${live.slug}`}>
                 Assistir agora
               </Link>

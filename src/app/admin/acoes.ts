@@ -33,10 +33,22 @@ export async function criarLive(
 
   const titulo = String(dados.get("titulo") ?? "").trim();
   const descricao = String(dados.get("descricao") ?? "").trim();
-  const dataHora = String(dados.get("comeca_em") ?? "").trim();
   const precoTexto = String(dados.get("preco") ?? "").trim();
 
+  // Os três campos de data são opcionais: dá para anunciar e vender uma live
+  // sem saber ainda quando ela vai ser.
+  const diaInicio = String(dados.get("dia_inicio") ?? "").trim() || null;
+  const diaFim = String(dados.get("dia_fim") ?? "").trim() || null;
+  const hora = String(dados.get("hora") ?? "").trim() || null;
+
   if (titulo.length < 3) return { erro: "Dê um título para a live." };
+
+  if (diaFim && !diaInicio) {
+    return { erro: "Preencha o primeiro dia antes de informar o último." };
+  }
+  if (diaInicio && diaFim && diaFim < diaInicio) {
+    return { erro: "O último dia não pode ser antes do primeiro." };
+  }
 
   const precoCentavos = centavosDeTexto(precoTexto);
   if (precoCentavos === null) return { erro: "Preço inválido. Exemplo: 19,90" };
@@ -62,7 +74,9 @@ export async function criarLive(
       slug,
       titulo,
       descricao,
-      comeca_em: dataHora ? new Date(dataHora).toISOString() : null,
+      dia_inicio: diaInicio,
+      dia_fim: diaFim,
+      hora,
       preco_centavos: precoCentavos,
       estado: "rascunho",
     })
@@ -106,7 +120,9 @@ export async function mudarEstadoDaLive(liveId: string, dados: FormData): Promis
   const conta = await exigirAdmin();
   const estado = String(dados.get("estado") ?? "") as EstadoLive;
 
-  const permitidos: EstadoLive[] = ["rascunho", "anunciada", "no_ar", "encerrada"];
+  // O painel só troca entre estes dois. "No ar" é detectado pela Cloudflare, e
+  // "encerrada" é ajustado direto no banco quando o dono quiser tirar de venda.
+  const permitidos: EstadoLive[] = ["rascunho", "anunciada"];
   if (!permitidos.includes(estado)) return;
 
   await clienteAdmin().from("lives").update({ estado }).eq("id", liveId);

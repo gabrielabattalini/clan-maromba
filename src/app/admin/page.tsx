@@ -8,8 +8,9 @@ import {
   mercadoPagoConfigurado,
   supabaseServidorConfigurado,
 } from "@/lib/config";
+import { marcarQuaisEstaoNoAr } from "@/lib/ao-vivo";
 import { exigirAdmin } from "@/lib/conta";
-import { dataCurta, precoEmReais } from "@/lib/formato";
+import { precoEmReais, quandoAcontece } from "@/lib/formato";
 import { listarTodasAsLives } from "@/lib/lives";
 import { ROTULO_ESTADO } from "@/lib/tipos";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PainelAdmin() {
   await exigirAdmin();
-  const lives = await listarTodasAsLives();
+  const lives = await marcarQuaisEstaoNoAr(await listarTodasAsLives());
 
   const pendencias = [
     !supabaseServidorConfigurado && "SUPABASE_SERVICE_ROLE_KEY (banco de dados)",
@@ -81,7 +82,7 @@ export default async function PainelAdmin() {
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {lives.map((live) => (
+            {lives.map(({ live, noAr }) => (
               <li key={live.id}>
                 <Link
                   href={`/admin/live/${live.id}`}
@@ -90,17 +91,15 @@ export default async function PainelAdmin() {
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{live.titulo}</p>
                     <p className="text-xs text-texto-fraco">
-                      {dataCurta(live.comeca_em)} · {precoEmReais(live.preco_centavos)}
+                      {quandoAcontece(live)} · {precoEmReais(live.preco_centavos)}
                     </p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider ${
-                      live.estado === "no_ar"
-                        ? "bg-destaque/15 text-destaque"
-                        : "bg-fundo text-texto-fraco"
+                      noAr ? "bg-destaque/15 text-destaque" : "bg-fundo text-texto-fraco"
                     }`}
                   >
-                    {ROTULO_ESTADO[live.estado]}
+                    {noAr ? "No ar" : ROTULO_ESTADO[live.estado]}
                   </span>
                 </Link>
               </li>

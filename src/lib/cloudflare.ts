@@ -139,20 +139,33 @@ export function enderecoDoManifesto(token: string): string {
   return `https://customer-${CF_CODIGO_CLIENTE}.cloudflarestream.com/${token}/manifest/video.m3u8`;
 }
 
+// A resposta é guardada por alguns segundos: com muita gente assistindo, esta
+// mesma pergunta seria repetida centenas de vezes por minuto sem necessidade.
+const cacheAoVivo = new Map<string, { valor: boolean; valeAte: number }>();
+const SEGUNDOS_DE_CACHE = 10;
+
 /** Pergunta à Cloudflare se o OBS está transmitindo neste momento. */
 export async function estaTransmitindo(inputUid: string): Promise<boolean> {
   if (!CF_CODIGO_CLIENTE) return false;
 
+  const agora = Date.now();
+  const guardado = cacheAoVivo.get(inputUid);
+  if (guardado && guardado.valeAte > agora) return guardado.valor;
+
+  let valor = false;
   try {
     const resposta = await fetch(
       `https://customer-${CF_CODIGO_CLIENTE}.cloudflarestream.com/${inputUid}/lifecycle`,
       { cache: "no-store", signal: AbortSignal.timeout(5000) },
     );
-    if (!resposta.ok) return false;
-
-    const corpo = (await resposta.json()) as { live?: boolean };
-    return corpo.live === true;
+    if (resposta.ok) {
+      const corpo = (await resposta.json()) as { live?: boolean };
+      valor = corpo.live === true;
+    }
   } catch {
-    return false;
+    valor = false;
   }
+
+  cacheAoVivo.set(inputUid, { valor, valeAte: agora + SEGUNDOS_DE_CACHE * 1000 });
+  return valor;
 }
