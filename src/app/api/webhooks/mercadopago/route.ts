@@ -87,7 +87,30 @@ export async function POST(requisicao: Request) {
       return NextResponse.json({ recebido: true }, { status: 200 });
     }
 
-    const novoStatus = statusDaCompra(pagamento.status);
+    let novoStatus = statusDaCompra(pagamento.status);
+
+    // Confere o valor antes de liberar. O preço vai para o Mercado Pago pelo
+    // servidor, então em uso normal isto sempre bate — mas se algum dia bater
+    // menos, é sinal de que a preferência foi adulterada no caminho, e nesse
+    // caso o acesso não sai. Um centavo de folga cobre arredondamento.
+    if (
+      novoStatus === "aprovada" &&
+      typeof pagamento.valorCentavos === "number" &&
+      pagamento.valorCentavos < compra.valor_centavos - 1
+    ) {
+      novoStatus = "pendente";
+      await registrar({
+        usuarioId: compra.usuario_id,
+        liveId: compra.live_id,
+        acao: "pagamento_recusado_valor_menor",
+        ip,
+        detalhes: {
+          idPagamento: pagamento.id,
+          cobrado: compra.valor_centavos,
+          pago: pagamento.valorCentavos,
+        },
+      });
+    }
 
     await supabase
       .from("compras")

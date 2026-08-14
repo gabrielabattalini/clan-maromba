@@ -9,16 +9,11 @@ import { podeTentar } from "@/lib/limite-taxa";
 import { ipDoVisitante, navegadorDoVisitante } from "@/lib/requisicao";
 import { abrirSessaoUnica, fecharSessaoUnica } from "@/lib/sessao";
 import { clienteAdmin } from "@/lib/supabase/admin";
+import { destinoSeguro } from "@/lib/destino";
 import { clienteServidor } from "@/lib/supabase/servidor";
 import type { EstadoFormulario } from "@/lib/tipos";
 
 const SENHA_MINIMA = 8;
-
-function destinoSeguro(valor: FormDataEntryValue | null): string {
-  const texto = typeof valor === "string" ? valor : "";
-  // Só aceitamos caminhos internos — nunca um endereço de outro site.
-  return texto.startsWith("/") && !texto.startsWith("//") ? texto : "/";
-}
 
 export async function entrar(
   _anterior: EstadoFormulario,

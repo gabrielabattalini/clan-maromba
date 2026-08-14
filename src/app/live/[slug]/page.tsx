@@ -21,7 +21,12 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const live = await buscarLivePorSlug(slug);
-  return { title: live?.titulo ?? "Live" };
+
+  // O título de um rascunho não sai daqui: esta função roda separada da
+  // página, então não é protegida pelo notFound() lá de baixo.
+  if (!live || live.estado === "rascunho") return { title: "Live" };
+
+  return { title: live.titulo };
 }
 
 export default async function PaginaDaLive({ params, searchParams }: Props) {

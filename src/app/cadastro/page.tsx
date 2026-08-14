@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { FormularioConta } from "@/components/FormularioConta";
 import { cadastrar } from "@/lib/acoes/autenticacao";
 import { supabaseConfigurado } from "@/lib/config";
+import { destinoSeguro } from "@/lib/destino";
 import { contaAtual } from "@/lib/conta";
 
 export const metadata: Metadata = { title: "Criar conta" };
@@ -12,7 +13,7 @@ type Props = { searchParams: Promise<{ voltar?: string }> };
 
 export default async function PaginaCadastro({ searchParams }: Props) {
   const { voltar } = await searchParams;
-  const destino = voltar?.startsWith("/") && !voltar.startsWith("//") ? voltar : "/";
+  const destino = destinoSeguro(voltar);
 
   if (supabaseConfigurado) {
     const conta = await contaAtual();

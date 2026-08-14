@@ -1,3 +1,9 @@
+// Trava de compilação: se algum dia alguém importar este arquivo dentro de
+// um componente que roda no navegador, o build QUEBRA em vez de publicar a
+// chave-mestra do banco para o mundo. O aviso do comentário abaixo depende
+// de alguém ler; esta linha, não.
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 
 import { SUPABASE_CHAVE_SECRETA, SUPABASE_URL } from "@/lib/config";

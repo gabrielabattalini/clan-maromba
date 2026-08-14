@@ -101,6 +101,17 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
 - Token de reprodução só para sessão ativa + compra confirmada da live.
 - Rate limiting em login, compra e emissão de token.
 
+Auditoria completa em `docs/seguranca.md` (14/08/2026): o que foi testado, os
+6 problemas corrigidos e as 4 pendências que dependem do dono. Ao mexer em
+`src/lib/destino.ts`, no webhook do MP ou nos cabeçalhos de `next.config.ts`,
+rode `npm test` — essas partes têm teste justamente por serem trava.
+
+Duas chaves passaram pelo chat em 14/08/2026 e **precisam ser trocadas**: o
+token de API da Vercel e a *secret key* do Supabase. Enquanto não forem, quem
+tiver o histórico da conversa consegue desviar pagamento (trocando
+`MP_ACCESS_TOKEN`) e ler/alterar o banco inteiro. Isso está no topo de
+`docs/seguranca.md`.
+
 ## Comandos
 
 ```bash
