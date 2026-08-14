@@ -353,6 +353,11 @@ export async function criarIngresso(
   const ordemTexto = String(dados.get("ordem") ?? "").trim();
   const ordem = ordemTexto ? Number(ordemTexto.replace(/\D/g, "")) : 0;
 
+  // Ingresso do bolão não abre o player, então janela nele não significa
+  // nada: guardar uma daria a impressão, no painel, de que ele libera vídeo
+  // em algum horário.
+  const soBolao = dados.get("so_bolao") === "sim";
+
   const { error } = await clienteAdmin().from("ingressos").insert({
     live_id: liveId,
     nome,
@@ -360,9 +365,10 @@ export async function criarIngresso(
     preco_centavos: preco,
     preco_cheio_centavos: precoCheio,
     promocao_ate: promocaoAte,
-    inicia_em: iniciaEm,
-    termina_em: terminaEm,
+    inicia_em: soBolao ? null : iniciaEm,
+    termina_em: soBolao ? null : terminaEm,
     limite,
+    so_bolao: soBolao,
     ordem: Number.isFinite(ordem) ? ordem : 0,
   });
 

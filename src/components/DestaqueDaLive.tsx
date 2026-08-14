@@ -23,17 +23,22 @@ type Props = {
 export function DestaqueDaLive({ live, noAr, comprada, vitrine }: Props) {
   const disponiveis = vitrine.filter((i) => !i.esgotado || i.jaTenho);
 
-  // Passe completo = sem janela nenhuma, vale a transmissão inteira.
-  const passe = vitrine.find(
+  // O ingresso do bolão também não tem janela, mas não é passe de nada: ele
+  // fica fora da manchete e fora do "a partir de", senão a home anunciaria a
+  // live inteira pelo preço de participar do bolão.
+  const daTransmissao = vitrine.filter((i) => !i.ingresso.so_bolao);
+
+  const passe = daTransmissao.find(
     (i) => i.ingresso.inicia_em === null && i.ingresso.termina_em === null,
   );
-  const porDia = vitrine.filter(
+  const porDia = daTransmissao.filter(
     (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
   );
 
+  const paraCalcularPreco = disponiveis.filter((i) => !i.ingresso.so_bolao);
   const maisBarato =
-    disponiveis.length > 0
-      ? Math.min(...disponiveis.map((i) => i.precoAgora))
+    paraCalcularPreco.length > 0
+      ? Math.min(...paraCalcularPreco.map((i) => i.precoAgora))
       : null;
 
   return (

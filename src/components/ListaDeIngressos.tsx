@@ -49,7 +49,13 @@ function CartaoIngresso({
   pagamentoLigado: boolean;
 }) {
   const { ingresso, precoAgora, emPromocao, restam, esgotado, jaTenho } = item;
-  const destacado = ingresso.inicia_em === null && ingresso.termina_em === null;
+  // O passe completo é o que não tem janela — mas o ingresso do bolão também
+  // não tem, e ele não é passe nenhum. Sem esta segunda condição ele apareceria
+  // com a faixa "melhor escolha · todos os dias" por R$ 5.
+  const destacado =
+    !ingresso.so_bolao &&
+    ingresso.inicia_em === null &&
+    ingresso.termina_em === null;
 
   return (
     <div
@@ -63,12 +69,25 @@ function CartaoIngresso({
         </p>
       ) : null}
 
+      {ingresso.so_bolao ? (
+        <p className="border-b border-borda bg-fundo-2 px-5 py-1.5 text-center text-[0.6875rem] font-bold uppercase tracking-widest text-texto-apagado">
+          Só o bolão · não assiste a live
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-4 p-5">
         <div className="min-w-40 flex-1">
           <h3 className="display text-xl">{ingresso.nome}</h3>
           {ingresso.descricao ? (
             <p className="mt-1.5 text-sm leading-relaxed text-texto-fraco">
               {ingresso.descricao}
+            </p>
+          ) : null}
+
+          {ingresso.so_bolao ? (
+            <p className="mt-2 text-xs leading-relaxed text-alerta">
+              Este aqui <strong>não dá acesso à transmissão</strong>: serve
+              apenas para participar do bolão.
             </p>
           ) : null}
 

@@ -135,6 +135,20 @@ export function FormularioIngresso({ liveId }: { liveId: string }) {
           fim depois da meia-noite (ex.: 27/09 às 03:00) — assim o acesso não
           corta no meio.
         </p>
+
+        <label className="mt-4 flex items-start gap-2.5 border-t border-borda pt-4 text-sm">
+          <input
+            className="mt-0.5 size-4 shrink-0 accent-[var(--destaque)]"
+            type="checkbox"
+            name="so_bolao"
+            value="sim"
+          />
+          <span>
+            <strong>Só o bolão</strong> — dá direito a palpitar e{" "}
+            <strong>não</strong> abre a transmissão. Use para vender a
+            participação no bolão à parte, para quem não vai assistir.
+          </span>
+        </label>
       </fieldset>
 
       <button className="botao self-start" type="submit" disabled={enviando}>

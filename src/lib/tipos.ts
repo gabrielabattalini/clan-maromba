@@ -64,6 +64,8 @@ export type Ingresso = {
   inicia_em: string | null;
   termina_em: string | null;
   limite: number | null;
+  /** Dá direito ao bolão e NÃO ao vídeo. */
+  so_bolao: boolean;
   ordem: number;
   ativo: boolean;
   criado_em: string;
