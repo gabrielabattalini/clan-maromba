@@ -5,11 +5,16 @@ import {
   checarSupabase,
   type ResultadoCheck,
 } from "@/lib/checks";
+import { supabaseServidorConfigurado } from "@/lib/config";
+import { contaAtual } from "@/lib/conta";
 import { definida, VARIAVEIS } from "@/lib/env";
+import { clienteAdmin } from "@/lib/supabase/admin";
 
 // Página de verificação da Fase 0: mostra se cada serviço está conectado.
 // Nunca exibe valores de chaves — apenas "conectado", "com erro" ou "faltando".
-// A partir da Fase 1 esta página passa a ser restrita ao admin.
+// A partir do momento em que existe um administrador cadastrado, a página
+// passa a ser restrita a ele — antes disso fica aberta, senão o dono não
+// conseguiria conferir o Supabase justamente no passo que cria o admin.
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +50,35 @@ function CartaoServico({ resultado }: { resultado: ResultadoCheck }) {
   );
 }
 
+/** Já existe algum administrador cadastrado no banco? */
+async function jaTemDono(): Promise<boolean> {
+  if (!supabaseServidorConfigurado) return false;
+  try {
+    const { count } = await clienteAdmin()
+      .from("perfis")
+      .select("id", { count: "exact", head: true })
+      .eq("admin", true);
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export default async function PaginaStatus() {
+  if (await jaTemDono()) {
+    const conta = await contaAtual();
+    if (!conta?.perfil?.admin) {
+      return (
+        <main className="mx-auto w-full max-w-md px-6 py-24 text-center">
+          <h1 className="text-xl font-bold">Página restrita</h1>
+          <p className="mt-3 text-sm text-texto-fraco">
+            Esta página é do administrador do site.
+          </p>
+        </main>
+      );
+    }
+  }
+
   const [supabase, cloudflare, mercadoPago] = await Promise.all([
     checarSupabase(),
     checarCloudflare(),
@@ -59,7 +92,7 @@ export default async function PaginaStatus() {
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12">
       <p className="text-xs font-medium uppercase tracking-widest text-texto-fraco">
-        Clan Maromba · Fase 0
+        Clan Maromba · Configuração
       </p>
       <h1 className="mt-1 text-3xl font-black">Status da configuração</h1>
       <p className="mt-2 text-sm text-texto-fraco">
@@ -69,8 +102,8 @@ export default async function PaginaStatus() {
 
       {tudoVerde ? (
         <div className="mt-6 rounded-xl border border-ok/40 bg-ok/10 p-4 text-sm font-medium text-ok">
-          ✅ Tudo verde! A Fase 0 está completa — podemos começar a Fase 1
-          (login, compra e player).
+          ✅ Serviços conectados. Falta só o que está com ⏳ na lista abaixo —
+          veja o guia <code>docs/fase-1-ligar-tudo.md</code>.
         </div>
       ) : null}
 
@@ -103,7 +136,7 @@ export default async function PaginaStatus() {
                 <code className="text-sm font-semibold">{v.nome}</code>
                 <p className="text-xs text-texto-fraco">
                   {v.descricao}
-                  {pendenteFase1 ? " — só será necessária na Fase 1." : ""}
+                  {pendenteFase1 ? " — pendente da Fase 1." : ""}
                 </p>
               </div>
             </li>
