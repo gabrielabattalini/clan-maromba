@@ -16,6 +16,7 @@ import {
 } from "@/lib/bolao";
 import { contaAtual } from "@/lib/conta";
 import { janelaLegivel } from "@/lib/formato";
+import { comprouAlgumaCoisa } from "@/lib/ingressos";
 import { buscarLivePorSlug } from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
@@ -42,11 +43,17 @@ export default async function PaginaDoBolao({ params }: Props) {
   if (categorias.length === 0) notFound();
 
   const ids = categorias.map((c) => c.id);
-  const [atletas, resultados, meus] = await Promise.all([
+  const [atletas, resultados, meus, temIngresso] = await Promise.all([
     listarAtletas(ids),
     listarResultados(ids),
     conta ? meusPalpites(conta.usuarioId, ids) : Promise.resolve(new Map()),
+    conta
+      ? comprouAlgumaCoisa(conta.usuarioId, live.id)
+      : Promise.resolve(false),
   ]);
+
+  // O bolão é benefício de quem comprou; o dono entra para poder testar.
+  const podePalpitar = temIngresso || Boolean(conta?.perfil?.admin);
 
   const nomeDoAtleta = new Map(atletas.map((a) => [a.id, a.nome]));
 
@@ -61,8 +68,9 @@ export default async function PaginaDoBolao({ params }: Props) {
 
       <h1 className="display mt-5 text-[clamp(2.25rem,7vw,3.75rem)]">Bolão</h1>
       <p className="mt-3 max-w-prose leading-relaxed text-texto-fraco">
-        Diga quem você acha que fica em cada posição. É de graça, e quem somar
-        mais pontos leva o prêmio.
+        Diga quem você acha que fica em cada posição. Quem somar mais pontos
+        leva o prêmio. É um extra de quem tem ingresso — não se paga nada
+        para palpitar.
       </p>
 
       {live.bolao_premio ? (
@@ -82,6 +90,10 @@ export default async function PaginaDoBolao({ params }: Props) {
             href={`/entrar?voltar=${encodeURIComponent(`/bolao/${live.slug}`)}`}
           >
             Entrar para palpitar
+          </Link>
+        ) : !podePalpitar ? (
+          <Link className="botao" href={`/live/${live.slug}`}>
+            Comprar ingresso e palpitar
           </Link>
         ) : null}
       </div>
@@ -175,7 +187,14 @@ export default async function PaginaDoBolao({ params }: Props) {
               </p>
             ) : !conta ? (
               <p className="mt-4 text-sm text-texto-fraco">
-                Crie sua conta para palpitar — é de graça.
+                Entre na sua conta para palpitar.
+              </p>
+            ) : !podePalpitar ? (
+              <p className="mt-4 text-sm text-texto-fraco">
+                O palpite é para quem tem ingresso desta live.{" "}
+                <Link className="text-destaque hover:underline" href={`/live/${live.slug}`}>
+                  Ver ingressos
+                </Link>
               </p>
             ) : (
               <>
@@ -213,7 +232,11 @@ export default async function PaginaDoBolao({ params }: Props) {
 
         <h2 className="etiqueta">Regras</h2>
         <ul className="mt-4 flex flex-col gap-2 text-sm leading-relaxed text-texto-fraco">
-          <li>Participar é de graça e não precisa comprar nada.</li>
+          <li>
+            Palpitar é um extra de quem tem ingresso desta live. Não se cobra
+            nada a mais para participar, e o prêmio não sai do bolso de
+            ninguém que palpitou.
+          </li>
           <li>
             Cada categoria fecha no horário mostrado acima. Depois disso o
             palpite não pode mais ser mudado.
