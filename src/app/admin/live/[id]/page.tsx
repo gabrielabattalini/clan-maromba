@@ -229,7 +229,9 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                     ) : null}
                   </p>
                   <p className="numero mt-0.5 text-xs text-texto-apagado">
-                    {janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
+                    {ingresso.so_bolao
+                      ? "Só o bolão · não abre o player"
+                      : janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
                   </p>
                 </div>
 

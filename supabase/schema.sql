@@ -163,6 +163,11 @@ create table if not exists public.ingressos (
   ativo                 boolean     not null default true,
   criado_em             timestamptz not null default now(),
 
+  -- Ingresso que dá SÓ o bolão: não abre o player. Sem esta coluna, um
+  -- ingresso barato sem janela seria lido como passe completo e liberaria a
+  -- transmissão inteira.
+  so_bolao              boolean not null default false,
+
   constraint ingressos_janela_coerente
     check (termina_em is null or inicia_em is null or termina_em > inicia_em),
   constraint ingressos_promocao_faz_sentido
@@ -191,6 +196,8 @@ create table if not exists public.compras (
 -- Uma compra agora é de um INGRESSO, não da live inteira. A coluna é
 -- opcional para não quebrar o que já existe; o backfill logo abaixo liga
 -- as compras antigas ao ingresso padrão da live.
+alter table public.ingressos add column if not exists so_bolao boolean not null default false;
+
 alter table public.compras add column if not exists ingresso_id uuid
   references public.ingressos (id) on delete set null;
 

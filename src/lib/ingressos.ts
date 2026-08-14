@@ -1,6 +1,11 @@
 import { supabaseServidorConfigurado } from "@/lib/config";
+import { daAcessoAoVideo } from "@/lib/ingressos-regras";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type { Compra, Ingresso, IngressoNaVitrine } from "@/lib/tipos";
+
+// As regras de janela e de "abre o player?" moram num módulo sem banco, para
+// poderem ser testadas: é o que impede o ingresso do bolão de virar passe.
+export * from "@/lib/ingressos-regras";
 
 /**
  * O preço que vale AGORA.
@@ -24,19 +29,6 @@ export function emPromocao(ingresso: Ingresso, agora = new Date()): boolean {
   if (ingresso.preco_cheio_centavos <= ingresso.preco_centavos) return false;
   if (ingresso.promocao_ate === null) return true;
   return new Date(ingresso.promocao_ate) > agora;
-}
-
-/**
- * Este ingresso dá acesso ao vídeo neste momento?
- *
- * Os dois extremos nulos significam passe completo. A janela é conferida em
- * data-e-hora justamente porque as finais atravessam a meia-noite: quem
- * comprou "sábado" continua vendo às 2h da manhã de domingo.
- */
-export function ingressoValeAgora(ingresso: Ingresso, agora = new Date()): boolean {
-  if (ingresso.inicia_em && new Date(ingresso.inicia_em) > agora) return false;
-  if (ingresso.termina_em && new Date(ingresso.termina_em) <= agora) return false;
-  return true;
 }
 
 export async function listarIngressos(
@@ -137,7 +129,7 @@ export async function temAcessoAgora(
   const ingressos = await listarIngressos(liveId, true);
   const meus = new Set(pagas.map((c) => c.ingresso_id));
 
-  return ingressos.some((i) => meus.has(i.id) && ingressoValeAgora(i, agora));
+  return ingressos.some((i) => meus.has(i.id) && daAcessoAoVideo(i, agora));
 }
 
 /** Comprou alguma coisa desta live, mesmo que a janela ainda não tenha aberto. */

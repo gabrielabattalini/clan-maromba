@@ -235,13 +235,21 @@ quem tem ingresso**, não produto avulso.
 `src/lib/bolao-pontos.ts` tem a conta (função pura, com teste) e
 `src/lib/bolao.ts` o acesso ao banco.
 
-- **Não se cobra nada para palpitar e o prêmio sai do bolso do dono.** Cobrar
+- **O ingresso do bolão (`ingressos.so_bolao`) é produto à parte.** Ele dá
+  direito a palpitar e **não abre o player** — a regra vive em
+  `src/lib/ingressos-regras.ts`, com teste, porque ele não tem janela e sem
+  essa checagem `ingressoValeAgora` o leria como passe completo, liberando a
+  transmissão inteira por R$ 5. A vitrine, o painel e a home também o
+  excluem do "passe completo" e do "a partir de".
+- **O prêmio é fixo, anunciado antes e pago pelo dono.** É o que separa
+  concurso de banca. Prêmio que é "o bolo arrecadado" não entra aqui. Cobrar
   entrada e pagar o vencedor com o bolo arrecadado é aposta: exige licença
   federal e é proibido pelos termos do Mercado Pago — o risco real é a conta
   que recebe os ingressos ser bloqueada. O dono pediu a versão paga duas
-  vezes em 14/08/2026 (R$ 5 por entrada); da segunda escolheu a saída que
-  monetiza sem apostar: **palpitar exige ingresso**. Assim o bolão vende
-  ingresso de R$ 9,90 em vez de arrecadar R$ 5 de aposta.
+  vezes em 14/08/2026 (R$ 5 por entrada). Na terceira ele argumentou, como
+  advogado, que vender ingresso de R$ 15 com bolão incluso e vender R$ 9,90 +
+  R$ 5 à parte é a mesma troca — e está certo, desde que o prêmio seja fixo e
+  sempre pago. Com isso o ingresso do bolão à parte foi construído.
 - Quem libera o palpite é `comprouAlgumaCoisa`, e não `temAcessoAgora`: quem
   comprou só o domingo palpita na quinta, muito antes da janela dele abrir.
 - **Pontuação**: 10 pelo campeão, 6 por outra posição exata, 2 por atleta
