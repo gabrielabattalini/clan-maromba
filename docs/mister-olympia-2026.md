@@ -42,11 +42,10 @@ suas contas, sua live e seus logs continuam onde estão.
 2. Cole o bloco abaixo **inteiro**
 3. Clique em **Run**
 
-O comando acha a live pelo endereço (`slug`). O valor já vem preenchido com o
-da sua live — é o que aparece depois de `/live/` quando você abre a live no
-painel. Se não bater, o comando avisa em vez de fazer bobagem. Rodar duas
-vezes **não duplica**: ele apaga os ingressos anteriores desta live antes de
-recriar.
+O comando acha a live **pelo nome**: qualquer live com "Olympia" no título.
+Não depende do endereço, que muda sozinho quando você apaga e recria uma live.
+Se achar nenhuma ou mais de uma, ele avisa e não faz nada. Rodar duas vezes
+**não duplica**: ele apaga os ingressos anteriores desta live antes de recriar.
 
 > ⚠️ Só rode antes de começar a vender. Depois que houver compra, apagar
 > ingresso deixaria a compra órfã — daí em diante mexa pelo painel.
@@ -54,13 +53,22 @@ recriar.
 ```sql
 do $$
 declare
-  v_slug text := 'mister-olympia-2026-full-acess-3';  -- confira no painel
   v_live uuid;
+  v_quantas integer;
 begin
-  select id into v_live from public.lives where slug = v_slug;
-  if v_live is null then
-    raise exception 'Não achei live com slug %. Confira em /admin.', v_slug;
+  -- Acha a live pelo NOME, não pelo endereço: apagar e recriar a live troca o
+  -- endereço (vira "...-2", "...-3") e o comando deixaria de achar.
+  select count(*) into v_quantas
+    from public.lives where titulo ilike '%olympia%';
+
+  if v_quantas = 0 then
+    raise exception 'Não achei nenhuma live com "Olympia" no nome. Crie a live em /admin antes.';
   end if;
+  if v_quantas > 1 then
+    raise exception 'Achei % lives com "Olympia" no nome. Apague as repetidas em /admin e rode de novo.', v_quantas;
+  end if;
+
+  select id into v_live from public.lives where titulo ilike '%olympia%';
 
   if exists (select 1 from public.compras where live_id = v_live and status = 'aprovada') then
     raise exception 'Esta live já tem compra paga — não vou mexer nos ingressos.';
