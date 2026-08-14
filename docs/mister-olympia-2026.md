@@ -20,6 +20,22 @@ propósito: dá folga para atraso do evento e para o pré e pós-show.
 
 ---
 
+## Antes: atualizar o banco (uma vez só)
+
+A tabela `ingressos` **é nova**. Ela não existe no seu banco ainda, porque o
+schema foi rodado antes desta entrega. Sem esse passo, o bloco de baixo dá
+erro dizendo que a tabela não existe.
+
+1. Abra o arquivo `supabase/schema.sql` deste projeto
+2. Copie o arquivo **inteiro**
+3. Supabase → **SQL Editor** → **New query** → cole → **Run**
+
+Pode rodar sem medo mesmo já tendo rodado antes: o arquivo é feito para ser
+colado várias vezes. Ele cria só o que falta e não apaga nada que já existe —
+suas contas, sua live e seus logs continuam onde estão.
+
+---
+
 ## Como usar
 
 1. Supabase → **SQL Editor** → **New query**
@@ -49,6 +65,16 @@ begin
   if exists (select 1 from public.compras where live_id = v_live and status = 'aprovada') then
     raise exception 'Esta live já tem compra paga — não vou mexer nos ingressos.';
   end if;
+
+  -- Nome e datas da manchete. O "Full acess" virou nome de ingresso, então no
+  -- título só polui. O endereço (slug) não muda: links já enviados continuam
+  -- funcionando.
+  update public.lives
+     set titulo = 'Mister Olympia 2026',
+         dia_inicio = '2026-09-24',
+         dia_fim = '2026-09-27',
+         hora = null
+   where id = v_live;
 
   delete from public.ingressos where live_id = v_live;
 
@@ -108,31 +134,17 @@ possível.
 
 ---
 
-## Opcional: arrumar o nome e as datas da live
+## O nome da live também muda
 
-Hoje a home anuncia **"Mister Olympia 2026 - Full acess"**, com "24 de setembro,
-a partir das 15h". Duas coisas ficaram estranhas depois dos ingressos:
+O bloco arruma a manchete de quebra. Ela era **"Mister Olympia 2026 - Full
+acess"**, com "24 de setembro, a partir das 15h", e passa a ser **"Mister
+Olympia 2026"**, com "24 a 27 de setembro".
 
-- o "Full acess" era o nome do produto, e agora quem faz esse papel é o
-  ingresso **Passe completo** — no título ele só polui a manchete (e está
-  escrito com um "s" a menos);
-- falta o dia de fim, então o site anuncia um dia só em vez dos quatro.
-
-Este comando arruma os dois. **Não mexe no endereço** (`slug`), então nenhum
-link que você já tenha mandado para alguém quebra:
-
-```sql
-update public.lives
-   set titulo = 'Mister Olympia 2026',
-       dia_inicio = '2026-09-24',
-       dia_fim = '2026-09-27',
-       hora = null
- where slug = 'mister-olympia-2026-full-acess-3';
-```
-
-Depois disso a home passa a dizer **"24 a 27 de setembro"**. Tirei a hora
-porque o horário de cada dia já está na tabela de programação — repetir "a
-partir das 15h" na manchete brigaria com ela.
+O "Full acess" era nome de produto, e quem faz esse papel agora é o ingresso
+**Passe completo** — no título ele só polui. Tirei a hora porque o horário de
+cada dia já está na tabela de programação, com mais precisão. O **endereço da
+live não muda**, então nenhum link que você já tenha mandado para alguém
+quebra.
 
 ---
 
@@ -140,6 +152,7 @@ partir das 15h" na manchete brigaria com ela.
 
 Abra a home do site. Você deve ver:
 
+- A manchete **Mister Olympia 2026**, com **24 a 27 de setembro** embaixo
 - O passe completo em destaque, com **R$ 39,90 riscado**, **R$ 29,90** grande,
   o contador regressivo e "Restam 100 ingressos"
 - Os quatro dias a R$ 9,90 cada
