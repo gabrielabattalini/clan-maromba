@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import {
   alternarBanimento,
+  alternarIngresso,
   apagarLive,
   criarCanalDeTransmissao,
   derrubarSessao,
@@ -11,10 +12,12 @@ import {
 } from "@/app/admin/acoes";
 import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
+import { FormularioIngresso } from "@/components/FormularioIngresso";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
-import { dataCurta, precoEmReais, quandoAcontece } from "@/lib/formato";
+import { dataCurta, janelaLegivel, precoEmReais, quandoAcontece } from "@/lib/formato";
+import { montarVitrine } from "@/lib/ingressos";
 import { buscarDadosPrivados, buscarLivePorId } from "@/lib/lives";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { ROTULO_ESTADO, ROTULO_STATUS_COMPRA, type StatusCompra } from "@/lib/tipos";
@@ -43,6 +46,8 @@ export default async function PaginaLiveAdmin({ params }: Props) {
   const transmitindo = privado?.cf_input_uid
     ? await estaTransmitindo(privado.cf_input_uid)
     : false;
+
+  const vitrine = await montarVitrine(live.id);
 
   const { data: compradores } = await clienteAdmin()
     .from("compras")
@@ -170,6 +175,85 @@ export default async function PaginaLiveAdmin({ params }: Props) {
             )}
           </div>
         )}
+      </section>
+
+      {/* ---------------- Ingressos ---------------- */}
+      <section className="cartao mt-6 p-6">
+        <h2 className="display text-xl">Ingressos</h2>
+        <p className="mt-1 text-sm text-texto-fraco">
+          O que está à venda nesta live. Cada ingresso tem preço e janela de
+          acesso próprios — é assim que você vende &ldquo;só o sábado&rdquo; e
+          o passe completo ao mesmo tempo.
+        </p>
+
+        {vitrine.length > 0 ? (
+          <ul className="mt-5 flex flex-col gap-2">
+            {vitrine.map(({ ingresso, precoAgora, emPromocao, vendidos, restam }) => (
+              <li
+                key={ingresso.id}
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borda px-4 py-3 ${
+                  ingresso.ativo ? "" : "opacity-55"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">
+                    {ingresso.nome}
+                    {!ingresso.ativo ? (
+                      <span className="ml-2 text-xs font-bold uppercase text-texto-apagado">
+                        fora de venda
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="numero mt-0.5 text-xs text-texto-apagado">
+                    {janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="numero font-semibold">
+                      {precoEmReais(precoAgora)}
+                      {emPromocao && ingresso.preco_cheio_centavos !== null ? (
+                        <span className="ml-2 text-xs font-normal text-texto-apagado line-through">
+                          {precoEmReais(ingresso.preco_cheio_centavos)}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="numero text-xs text-texto-apagado">
+                      {vendidos} vendido{vendidos === 1 ? "" : "s"}
+                      {restam !== null ? ` · restam ${restam}` : ""}
+                    </p>
+                  </div>
+
+                  <form
+                    action={alternarIngresso.bind(
+                      null,
+                      live.id,
+                      ingresso.id,
+                      !ingresso.ativo,
+                    )}
+                  >
+                    <button
+                      className="botao botao-secundario !px-3 !py-1.5 !text-xs"
+                      type="submit"
+                    >
+                      {ingresso.ativo ? "Tirar de venda" : "Voltar a vender"}
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-texto-fraco">
+            Nenhum ingresso ainda — sem isso ninguém consegue comprar.
+          </p>
+        )}
+
+        <div className="mt-6 border-t border-borda pt-6">
+          <h3 className="mb-4 text-sm font-semibold">Novo ingresso</h3>
+          <FormularioIngresso liveId={live.id} />
+        </div>
       </section>
 
       {/* ---------------- Apagar ---------------- */}

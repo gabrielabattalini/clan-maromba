@@ -45,10 +45,43 @@ export type Perfil = {
   criado_em: string;
 };
 
+export type Ingresso = {
+  id: string;
+  live_id: string;
+  nome: string;
+  descricao: string;
+  preco_centavos: number;
+  /** Preço "de", para o corte. Só existe se foi preço realmente praticado. */
+  preco_cheio_centavos: number | null;
+  /** Quando a promoção acaba de verdade e o preço sobe. */
+  promocao_ate: string | null;
+  /** Janela de acesso. Os dois nulos = passe completo. */
+  inicia_em: string | null;
+  termina_em: string | null;
+  limite: number | null;
+  ordem: number;
+  ativo: boolean;
+  criado_em: string;
+};
+
+/** O ingresso somado ao que só se sabe consultando as vendas e o relógio. */
+export type IngressoNaVitrine = {
+  ingresso: Ingresso;
+  /** O que o comprador paga AGORA — sobe sozinho quando a promoção vence. */
+  precoAgora: number;
+  emPromocao: boolean;
+  vendidos: number;
+  restam: number | null;
+  esgotado: boolean;
+  /** Já comprado por quem está olhando. */
+  jaTenho: boolean;
+};
+
 export type Compra = {
   id: string;
   usuario_id: string;
   live_id: string;
+  ingresso_id: string | null;
   status: StatusCompra;
   valor_centavos: number;
   mp_preference_id: string | null;

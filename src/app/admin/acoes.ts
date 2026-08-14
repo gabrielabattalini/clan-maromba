@@ -20,6 +20,21 @@ import type {
   EstadoLive,
 } from "@/lib/tipos";
 
+/**
+ * Lê o campo de data e hora do formulário como horário de BRASÍLIA.
+ *
+ * O navegador manda "2026-09-26T22:00", sem fuso. Se o servidor
+ * interpretasse com o fuso dele (UTC), a janela do ingresso ficaria 3 horas
+ * deslocada — e as finais, que já viram a madrugada, cortariam na hora
+ * errada. O Brasil não tem mais horário de verão, então o -03:00 é fixo.
+ */
+function instanteEmBrasilia(texto: string): string | null {
+  const limpo = texto.trim();
+  if (!limpo) return null;
+  const data = new Date(`${limpo}:00-03:00`);
+  return Number.isNaN(data.getTime()) ? null : data.toISOString();
+}
+
 /** "19,90" ou "19.90" ou "19" → 1990 centavos. */
 function centavosDeTexto(texto: string): number | null {
   const limpo = texto.replace(/[^\d,.-]/g, "").replace(",", ".");
@@ -90,6 +105,15 @@ export async function criarLive(
   if (error || !live) {
     return { erro: "Não consegui salvar a live. Tente de novo." };
   }
+
+  // Toda live nasce com um ingresso: sem isso não há o que comprar.
+  await supabase.from("ingressos").insert({
+    live_id: live.id,
+    nome: "Acesso à live",
+    descricao: "",
+    preco_centavos: precoCentavos,
+    ordem: 0,
+  });
 
   // Cria o canal de transmissão na Cloudflare (URL + chave do OBS).
   if (cloudflareConfigurado) {
@@ -280,6 +304,105 @@ export async function apagarLive(liveId: string): Promise<EstadoFormulario> {
   revalidatePath("/admin");
   revalidatePath("/");
   redirect("/admin");
+}
+
+export async function criarIngresso(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+
+  const nome = String(dados.get("nome") ?? "").trim();
+  const descricao = String(dados.get("descricao") ?? "").trim();
+  if (nome.length < 2) return { erro: "Dê um nome ao ingresso." };
+
+  const preco = centavosDeTexto(String(dados.get("preco") ?? ""));
+  if (preco === null) return { erro: "Preço inválido. Exemplo: 9,90" };
+
+  const cheioTexto = String(dados.get("preco_cheio") ?? "").trim();
+  const precoCheio = cheioTexto ? centavosDeTexto(cheioTexto) : null;
+  if (cheioTexto && precoCheio === null) {
+    return { erro: "Preço cheio inválido. Exemplo: 39,90" };
+  }
+  if (precoCheio !== null && precoCheio <= preco) {
+    return { erro: "O preço cheio precisa ser MAIOR que o promocional." };
+  }
+
+  const promocaoAte = instanteEmBrasilia(String(dados.get("promocao_ate") ?? ""));
+  if (promocaoAte && precoCheio === null) {
+    return {
+      erro:
+        "Para ter contagem regressiva é preciso informar o preço cheio — " +
+        "é ele que passa a valer quando o prazo acabar.",
+    };
+  }
+
+  const iniciaEm = instanteEmBrasilia(String(dados.get("inicia_em") ?? ""));
+  const terminaEm = instanteEmBrasilia(String(dados.get("termina_em") ?? ""));
+  if (iniciaEm && terminaEm && terminaEm <= iniciaEm) {
+    return { erro: "O fim da janela precisa ser depois do começo." };
+  }
+
+  const limiteTexto = String(dados.get("limite") ?? "").trim();
+  const limite = limiteTexto ? Number(limiteTexto.replace(/\D/g, "")) : null;
+  if (limiteTexto && (!limite || limite < 1)) {
+    return { erro: "Limite inválido. Deixe em branco para não ter limite." };
+  }
+
+  const ordemTexto = String(dados.get("ordem") ?? "").trim();
+  const ordem = ordemTexto ? Number(ordemTexto.replace(/\D/g, "")) : 0;
+
+  const { error } = await clienteAdmin().from("ingressos").insert({
+    live_id: liveId,
+    nome,
+    descricao,
+    preco_centavos: preco,
+    preco_cheio_centavos: precoCheio,
+    promocao_ate: promocaoAte,
+    inicia_em: iniciaEm,
+    termina_em: terminaEm,
+    limite,
+    ordem: Number.isFinite(ordem) ? ordem : 0,
+  });
+
+  if (error) {
+    console.error("[admin] falha ao criar ingresso:", error.message);
+    return { erro: "Não consegui salvar o ingresso. Tente de novo." };
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId,
+    acao: "admin_criou_ingresso",
+    ip: await ipDoVisitante(),
+    detalhes: { nome, preco },
+  });
+
+  revalidatePath(`/admin/live/${liveId}`);
+  revalidatePath("/");
+  return { aviso: `Ingresso "${nome}" criado.` };
+}
+
+export async function alternarIngresso(
+  liveId: string,
+  ingressoId: string,
+  ativar: boolean,
+): Promise<void> {
+  const conta = await exigirAdmin();
+
+  await clienteAdmin().from("ingressos").update({ ativo: ativar }).eq("id", ingressoId);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId,
+    acao: ativar ? "admin_ativou_ingresso" : "admin_desativou_ingresso",
+    ip: await ipDoVisitante(),
+    detalhes: { ingressoId },
+  });
+
+  revalidatePath(`/admin/live/${liveId}`);
+  revalidatePath("/");
 }
 
 export async function derrubarSessao(usuarioId: string): Promise<void> {

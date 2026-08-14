@@ -6,7 +6,8 @@ import { assinarTokenReproducao, enderecoDoManifesto } from "@/lib/cloudflare";
 import { assinaturaConfigurada } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { podeTentar } from "@/lib/limite-taxa";
-import { buscarCompra, buscarDadosPrivados, buscarLivePorSlug } from "@/lib/lives";
+import { temAcessoAgora } from "@/lib/ingressos";
+import { buscarDadosPrivados, buscarLivePorSlug } from "@/lib/lives";
 import { ipDaRequisicao } from "@/lib/requisicao";
 import { conferirSessaoUnica } from "@/lib/sessao";
 
@@ -75,16 +76,17 @@ export async function POST(requisicao: Request) {
     );
   }
 
-  const compra = await buscarCompra(conta.usuarioId, live.id);
-  if (compra?.status !== "aprovada") {
+  // Não basta ter comprado: o ingresso precisa valer NESTE momento. Quem
+  // comprou só o Dia 1 não entra no Dia 3.
+  if (!(await temAcessoAgora(conta.usuarioId, live.id))) {
     await registrar({
       usuarioId: conta.usuarioId,
       liveId: live.id,
-      acao: "token_negado_sem_compra",
+      acao: "token_negado_sem_acesso",
       ip,
     });
     return NextResponse.json(
-      { erro: "você não comprou esta live", motivo: "sem_compra" },
+      { erro: "seu ingresso não vale para este momento", motivo: "sem_compra" },
       { status: 403 },
     );
   }

@@ -111,6 +111,46 @@ export function gerarSlug(texto: string): string {
     .slice(0, 60);
 }
 
+/**
+ * Uma janela de acesso em horário de Brasília.
+ *
+ * Aqui o `new Date` é o certo: `inicia_em` e `termina_em` são instantes
+ * (timestamptz), não dias de calendário — o contrário do caso de
+ * `quandoAcontece`. E é sempre em horário do Brasil, porque é onde o
+ * comprador está, mesmo quando o evento é fora.
+ */
+export function janelaLegivel(inicia: string | null, termina: string | null): string {
+  if (!inicia && !termina) return "Vale a transmissão inteira";
+
+  const marcar = (iso: string) => {
+    const d = new Date(iso);
+    const partes = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+    const p = (t: string) => partes.find((x) => x.type === t)?.value ?? "";
+    return {
+      dia: `${p("day")}/${p("month")}`,
+      hora: `${p("hour")}h${p("minute") === "00" ? "" : p("minute")}`,
+    };
+  };
+
+  if (inicia && termina) {
+    const a = marcar(inicia);
+    const b = marcar(termina);
+    return a.dia === b.dia
+      ? `${a.dia}, das ${a.hora} às ${b.hora}`
+      : `${a.dia} às ${a.hora} → ${b.dia} às ${b.hora}`;
+  }
+
+  const only = marcar((inicia ?? termina)!);
+  return inicia ? `A partir de ${only.dia}, ${only.hora}` : `Até ${only.dia}, ${only.hora}`;
+}
+
 /** Mostra só o começo do IP na marca d'água (ex.: "189.40.x.x"). */
 export function ipResumido(ip: string | null): string {
   if (!ip) return "ip desconhecido";
