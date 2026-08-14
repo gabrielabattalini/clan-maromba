@@ -25,16 +25,16 @@ webhook, player, marca d'água, sessão única, auditoria, limite de tentativas)
 O que falta é **configuração**, não programação. O caminho está em
 `docs/fase-1-ligar-tudo.md` — 6 passos, cada um com teste.
 
-Situação das chaves em 14/08/2026 (conferida pela página `/status`):
-**Supabase conectado** — `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` preenchidas e
-funcionando. As 5 restantes (Cloudflare ×3, Mercado Pago ×2) continuam vazias.
+Situação em 14/08/2026, fim da manhã: **falta só a Cloudflare**. Supabase e
+Mercado Pago (token + segredo do webhook) estão preenchidos e valendo em
+produção. As 3 variáveis da Cloudflare e as 2 da chave de assinatura são as
+únicas vazias — e é por isso que ninguém consegue assistir ainda.
 
 Ordem de dependência (não dá para pular): Supabase → SQL do
 `supabase/schema.sql` → virar admin → Mercado Pago → `MP_WEBHOOK_SECRET` →
 Cloudflare Stream → chave de assinatura (gerada em `/admin/configuracao`).
 
-Da Fase 0, o que já estava resolvido:
+Andamento:
 
 - ✅ **Passo 1 (Vercel):** projeto importado e no ar. O dono criou uma conta
   Vercel separada (espaço "CLAN MAROMBA", plano Hobby) para não dividir a cota
@@ -48,12 +48,10 @@ Da Fase 0, o que já estava resolvido:
   causa do Stream — esta é a recomendação).
 - ✅ **Supabase (chaves)** — projeto `mkzsizdhkgqfhsngenoc`, 3 chaves coladas,
   `/status` verde
-- ⬜ **Supabase (banco)** — rodar `supabase/schema.sql`, criar a conta do dono e
-  o `update perfis set admin = true`. Ordem importa: as tabelas primeiro. O SQL
-  faz backfill de `auth.users` para `perfis`, então uma conta criada antes de
-  rodar o arquivo também ganha perfil.
-- ⬜ **Mercado Pago** — Access Token de teste
-- ⬜ **Webhook do MP** — `MP_WEBHOOK_SECRET`
+- ✅ **Supabase (banco)** — schema rodado, dono é admin. O SQL faz backfill de
+  `auth.users` para `perfis`, então rodar depois de já ter conta funciona.
+- ✅ **Mercado Pago** — Access Token de teste (`TEST-`) cadastrado
+- ✅ **Webhook do MP** — `MP_WEBHOOK_SECRET` cadastrado
 - ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
 - ⬜ **Chave de assinatura** — 2 valores, gerados em `/admin/configuracao`
 
@@ -170,6 +168,30 @@ Apagar live existe no painel (`apagarLive`), mas **recusa quando há compra
 `aprovada` ou `reembolsada`** — o registro de quem pagou tem de sobreviver à
 live. Para tirar de venda uma live já vendida, marcar `encerrada` no banco.
 Apagar também remove o live input na Cloudflare, para não deixar órfão.
+
+## Contas: confirmação de e-mail e recuperação de senha
+
+`/auth/confirmar` é onde caem TODOS os links que o Supabase manda por e-mail.
+Aceita as duas formas que ele usa (`code` → `exchangeCodeForSession`, ou
+`token_hash` + `type` → `verifyOtp`); a segunda é a que funciona quando a
+pessoa cadastra no computador e confirma pelo celular. Sempre termina numa
+tela nossa: `/auth/pronto` no caso normal, `/nova-senha` quando o tipo é
+`recovery`. Link vencido também cai em `/auth/pronto?estado=falhou`, nunca
+numa página em branco.
+
+O `signUp` precisa mandar `emailRedirectTo` apontando para lá, senão o
+Supabase usa o endereço dele mesmo e a pessoa acha que deu errado.
+
+Trocar a senha chama `abrirSessaoUnica` de novo — é o que derruba quem
+estivesse na conta com a senha antiga.
+
+`pedirNovaSenha` responde **a mesma coisa** para e-mail que existe e que não
+existe. Se a resposta mudasse, o formulário viraria uma forma de descobrir
+quem é cliente do dono.
+
+**Configuração no Supabase** (Authentication → URL Configuration): a
+`Site URL` e a lista de `Redirect URLs` precisam conter o endereço do site,
+senão o Supabase recusa o `emailRedirectTo` e ignora nossa tela.
 
 ## Como uma live guarda a data
 

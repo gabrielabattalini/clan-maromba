@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { registrar } from "@/lib/auditoria";
-import { supabaseConfigurado } from "@/lib/config";
+import { enderecoDoSite, supabaseConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { podeTentar } from "@/lib/limite-taxa";
 import { ipDoVisitante, navegadorDoVisitante } from "@/lib/requisicao";
@@ -105,7 +105,14 @@ export async function cadastrar(
   const { data, error } = await supabase.auth.signUp({
     email,
     password: senha,
-    options: { data: { nome } },
+    options: {
+      data: { nome },
+      // Sem isto o link do e-mail cai num endereço do próprio Supabase, que
+      // confirma a conta mas não mostra nada — parece que deu errado.
+      emailRedirectTo: `${enderecoDoSite()}/auth/confirmar${
+        voltar === "/" ? "" : `?proximo=${encodeURIComponent(voltar)}`
+      }`,
+    },
   });
 
   if (error) {

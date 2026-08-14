@@ -88,6 +88,15 @@ export function FormularioConta({ modo, acao, voltar }: Props) {
         {enviando ? "Aguarde…" : ehCadastro ? "Criar conta" : "Entrar"}
       </button>
 
+      {!ehCadastro ? (
+        <Link
+          className="text-center text-sm text-texto-apagado transition-colors hover:text-texto"
+          href="/recuperar"
+        >
+          Esqueci minha senha
+        </Link>
+      ) : null}
+
       <p className="text-center text-sm text-texto-fraco">
         {ehCadastro ? "Já tem conta? " : "Ainda não tem conta? "}
         <Link
