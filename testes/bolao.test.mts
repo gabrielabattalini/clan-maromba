@@ -7,7 +7,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { pontuar, acertosExatos, apelidoPublico, categoriaAberta, topCinco, PONTOS_MAXIMOS_POR_CATEGORIA } =
+const {
+  pontuar,
+  acertosExatos,
+  apelidoPublico,
+  campeoes,
+  categoriaAberta,
+  fatiaDoPremio,
+  topCinco,
+  PONTOS_MAXIMOS_POR_CATEGORIA,
+} =
   await import("@/lib/bolao-pontos");
 
 // Cinco atletas, nomeados por letra para o teste ficar legível.
@@ -103,4 +112,41 @@ test("o ranking público nunca mostra o e-mail inteiro", () => {
 test("quem não pôs nome ainda aparece com algum rótulo", () => {
   assert.equal(apelidoPublico("", ""), "Participante");
   assert.equal(apelidoPublico("Rafa", "r@x.com"), "Rafa");
+});
+
+test("campeão é todo mundo que empatou na maior pontuação", () => {
+  const linhas = [
+    { usuarioId: "a", pontos: 22 },
+    { usuarioId: "b", pontos: 22 },
+    { usuarioId: "c", pontos: 18 },
+  ];
+  assert.deepEqual(
+    campeoes(linhas).map((l) => l.usuarioId),
+    ["a", "b"],
+  );
+});
+
+test("um só no topo é campeão sozinho", () => {
+  const linhas = [
+    { usuarioId: "a", pontos: 30 },
+    { usuarioId: "b", pontos: 22 },
+  ];
+  assert.deepEqual(campeoes(linhas).map((l) => l.usuarioId), ["a"]);
+});
+
+test("ninguém pontuou, ninguém é campeão", () => {
+  assert.deepEqual(campeoes([{ usuarioId: "a", pontos: 0 }]), []);
+  assert.deepEqual(campeoes([]), []);
+});
+
+test("o prêmio anunciado é dividido entre os campeões", () => {
+  assert.equal(fatiaDoPremio(30000, 1), 30000);
+  assert.equal(fatiaDoPremio(30000, 5), 6000);
+  assert.equal(fatiaDoPremio(30000, 50), 600);
+});
+
+test("sobra de centavo fica com quem paga, para nunca faltar", () => {
+  // R$ 100 para 3 pessoas: 33,33 cada, e sobram 1 centavo.
+  assert.equal(fatiaDoPremio(10000, 3), 3333);
+  assert.equal(fatiaDoPremio(10000, 0), 0);
 });

@@ -263,8 +263,9 @@ export default async function PaginaDoBolao({ params }: Props) {
             palpite não pode mais ser mudado.
           </li>
           <li>
-            Empate: vence quem tiver mais acertos de posição exata; se persistir,
-            quem palpitou primeiro.
+            <strong>Empate no topo divide o prêmio.</strong> Se cinco pessoas
+            fizerem a maior pontuação da categoria, as cinco ganham, cada uma
+            com um quinto do prêmio anunciado.
           </li>
           <li>
             O prêmio sai do bolso do organizador e é entregue depois do resultado

@@ -79,3 +79,29 @@ export function apelidoPublico(nome: string, email: string): string {
   const ultimo = partes[partes.length - 1];
   return `${partes[0]} ${ultimo[0].toUpperCase()}.`;
 }
+
+/**
+ * Quem leva o prêmio de uma categoria.
+ *
+ * Todo mundo que empatar na maior pontuação. Empate no topo é comum em
+ * bolão, e escolher um só por critério de desempate seria arbitrário: duas
+ * pessoas que acertaram exatamente a mesma coisa merecem o mesmo.
+ *
+ * O prêmio anunciado é dividido entre eles, então o custo do dono não muda
+ * com a quantidade de campeões — cinco dividindo R$ 300 é R$ 60 cada,
+ * cinquenta dividindo R$ 300 é R$ 6 cada.
+ *
+ * Zero ponto não é campeão: ninguém ganha por não ter acertado nada.
+ */
+export function campeoes<T extends { pontos: number }>(linhas: T[]): T[] {
+  const melhor = Math.max(0, ...linhas.map((l) => l.pontos));
+  if (melhor === 0) return [];
+  return linhas.filter((l) => l.pontos === melhor);
+}
+
+/** Quanto cada campeão leva, em centavos, dividindo o prêmio anunciado. */
+export function fatiaDoPremio(premioCentavos: number, quantosCampeoes: number): number {
+  if (quantosCampeoes <= 0) return 0;
+  // Arredonda para baixo: sobra de centavo fica com quem paga, nunca falta.
+  return Math.floor(premioCentavos / quantosCampeoes);
+}

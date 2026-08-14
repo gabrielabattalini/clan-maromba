@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { listarCategorias, rankingDaCategoria } from "@/lib/bolao";
+import { campeoes, listarCategorias, rankingDaCategoria } from "@/lib/bolao";
 import { contaAtual } from "@/lib/conta";
 import { buscarLivePorSlug } from "@/lib/lives";
 import type { LinhaDoRanking } from "@/lib/tipos";
@@ -71,24 +71,43 @@ export default async function PaginaDoRanking({ params }: Props) {
               ) : null}
             </div>
 
-            <ol className="flex flex-col gap-2">
-              {linhas.map((linha, indice) => (
-                <Linha
-                  key={linha.usuarioId}
-                  linha={linha}
-                  indice={indice}
-                  souEu={conta?.usuarioId === linha.usuarioId}
-                />
-              ))}
-            </ol>
+            {(() => {
+              const vencedores = new Set(campeoes(linhas).map((l) => l.usuarioId));
+
+              return (
+                <>
+                  {vencedores.size > 1 ? (
+                    <p className="mb-3 text-sm text-texto-fraco">
+                      <strong className="text-destaque">
+                        {vencedores.size} pessoas empataram no topo
+                      </strong>{" "}
+                      — o prêmio desta categoria é dividido entre elas.
+                    </p>
+                  ) : null}
+
+                  <ol className="flex flex-col gap-2">
+                    {linhas.map((linha, indice) => (
+                      <Linha
+                        key={linha.usuarioId}
+                        linha={linha}
+                        indice={indice}
+                        souEu={conta?.usuarioId === linha.usuarioId}
+                        campeao={vencedores.has(linha.usuarioId)}
+                      />
+                    ))}
+                  </ol>
+                </>
+              );
+            })()}
           </section>
         ))
       )}
 
       <p className="mt-8 text-xs leading-relaxed text-texto-apagado">
-        Cada categoria tem a sua classificação e o seu prêmio. Empate desfaz
-        por acertos de posição exata e, depois, por quem palpitou primeiro. Os
-        nomes aparecem abreviados de propósito — esta página é pública.
+        Cada categoria tem a sua classificação e o seu prêmio. Quem empata na
+        maior pontuação divide o prêmio daquela categoria — empate no topo é
+        comum, e premiar só um seria arbitrário. Os nomes aparecem abreviados
+        de propósito: esta página é pública.
       </p>
     </main>
   );
@@ -98,15 +117,17 @@ function Linha({
   linha,
   indice,
   souEu,
+  campeao,
 }: {
   linha: LinhaDoRanking;
   indice: number;
   souEu: boolean;
+  campeao: boolean;
 }) {
   return (
     <li
       className={`cartao flex items-center gap-4 px-4 py-3 ${
-        souEu ? "border-destaque/60" : ""
+        campeao ? "border-destaque" : souEu ? "border-destaque/60" : ""
       }`}
     >
       <span
@@ -118,6 +139,7 @@ function Linha({
       </span>
 
       <span className="min-w-0 flex-1 truncate font-medium">
+        {campeao ? "★ " : ""}
         {linha.apelido}
         {souEu ? (
           <span className="ml-2 text-xs font-bold uppercase text-destaque">você</span>
