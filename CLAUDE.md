@@ -155,6 +155,11 @@ acesso de graça, então não mexa nela sem rodar `npm test`.
   banco; `no_ar` gravado à mão no banco funciona como liberação manual de
   emergência.
 
+Apagar live existe no painel (`apagarLive`), mas **recusa quando há compra
+`aprovada` ou `reembolsada`** — o registro de quem pagou tem de sobreviver à
+live. Para tirar de venda uma live já vendida, marcar `encerrada` no banco.
+Apagar também remove o live input na Cloudflare, para não deixar órfão.
+
 ## Como uma live guarda a data
 
 `lives` tem três campos **todos opcionais**: `dia_inicio` (date), `dia_fim`

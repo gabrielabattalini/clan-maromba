@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CampoCopiavel } from "@/components/CampoCopiavel";
 import {
   alternarBanimento,
+  apagarLive,
   criarCanalDeTransmissao,
   derrubarSessao,
   mudarEstadoDaLive,
 } from "@/app/admin/acoes";
+import { BotaoApagarLive } from "@/components/BotaoApagarLive";
+import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
@@ -165,6 +167,19 @@ export default async function PaginaLiveAdmin({ params }: Props) {
             )}
           </div>
         )}
+      </section>
+
+      {/* ---------------- Apagar ---------------- */}
+      <section className="cartao mt-6 border-destaque/30 p-6">
+        <h2 className="text-base font-bold">Apagar</h2>
+        <p className="mt-1 text-sm text-texto-fraco">
+          Serve para limpar live criada por engano ou duplicada. Live que já
+          tem compra paga não pode ser apagada — nesse caso o caminho é marcar
+          como encerrada.
+        </p>
+        <div className="mt-4">
+          <BotaoApagarLive acao={apagarLive.bind(null, live.id)} titulo={live.titulo} />
+        </div>
       </section>
 
       {/* ---------------- Compradores ---------------- */}
