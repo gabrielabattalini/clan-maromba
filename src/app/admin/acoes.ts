@@ -1,0 +1,231 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { registrar } from "@/lib/auditoria";
+import { criarChaveDeAssinatura, criarLiveInput } from "@/lib/cloudflare";
+import { cloudflareConfigurado } from "@/lib/config";
+import { exigirAdmin } from "@/lib/conta";
+import { gerarSlug } from "@/lib/formato";
+import { ipDoVisitante } from "@/lib/requisicao";
+import { clienteAdmin } from "@/lib/supabase/admin";
+import type {
+  ChaveAssinaturaGerada,
+  EstadoFormulario,
+  EstadoLive,
+} from "@/lib/tipos";
+
+/** "19,90" ou "19.90" ou "19" → 1990 centavos. */
+function centavosDeTexto(texto: string): number | null {
+  const limpo = texto.replace(/[^\d,.-]/g, "").replace(",", ".");
+  if (!limpo) return null;
+  const valor = Number(limpo);
+  if (!Number.isFinite(valor) || valor < 0) return null;
+  return Math.round(valor * 100);
+}
+
+export async function criarLive(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+
+  const titulo = String(dados.get("titulo") ?? "").trim();
+  const descricao = String(dados.get("descricao") ?? "").trim();
+  const dataHora = String(dados.get("comeca_em") ?? "").trim();
+  const precoTexto = String(dados.get("preco") ?? "").trim();
+
+  if (titulo.length < 3) return { erro: "Dê um título para a live." };
+
+  const precoCentavos = centavosDeTexto(precoTexto);
+  if (precoCentavos === null) return { erro: "Preço inválido. Exemplo: 19,90" };
+
+  const supabase = clienteAdmin();
+
+  // Slug único (o endereço da página da live).
+  const base = gerarSlug(titulo) || "live";
+  let slug = base;
+  for (let tentativa = 2; tentativa <= 50; tentativa++) {
+    const { data: existente } = await supabase
+      .from("lives")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!existente) break;
+    slug = `${base}-${tentativa}`;
+  }
+
+  const { data: live, error } = await supabase
+    .from("lives")
+    .insert({
+      slug,
+      titulo,
+      descricao,
+      comeca_em: dataHora ? new Date(dataHora).toISOString() : null,
+      preco_centavos: precoCentavos,
+      estado: "rascunho",
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (error || !live) {
+    return { erro: "Não consegui salvar a live. Tente de novo." };
+  }
+
+  // Cria o canal de transmissão na Cloudflare (URL + chave do OBS).
+  if (cloudflareConfigurado) {
+    try {
+      const input = await criarLiveInput(titulo);
+      await supabase.from("lives_privado").upsert({
+        live_id: live.id,
+        cf_input_uid: input.uid,
+        cf_rtmps_url: input.rtmpsUrl,
+        cf_stream_key: input.streamKey,
+        atualizado_em: new Date().toISOString(),
+      });
+    } catch (erro) {
+      console.error("[admin] falha ao criar live input:", erro);
+      // A live fica salva mesmo assim; o painel avisa e oferece tentar de novo.
+    }
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId: live.id,
+    acao: "admin_criou_live",
+    ip: await ipDoVisitante(),
+    detalhes: { titulo, precoCentavos },
+  });
+
+  revalidatePath("/admin");
+  redirect(`/admin/live/${live.id}`);
+}
+
+export async function mudarEstadoDaLive(liveId: string, dados: FormData): Promise<void> {
+  const conta = await exigirAdmin();
+  const estado = String(dados.get("estado") ?? "") as EstadoLive;
+
+  const permitidos: EstadoLive[] = ["rascunho", "anunciada", "no_ar", "encerrada"];
+  if (!permitidos.includes(estado)) return;
+
+  await clienteAdmin().from("lives").update({ estado }).eq("id", liveId);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId,
+    acao: "admin_mudou_estado_da_live",
+    ip: await ipDoVisitante(),
+    detalhes: { estado },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/live/${liveId}`);
+  revalidatePath("/");
+}
+
+export async function criarCanalDeTransmissao(liveId: string): Promise<void> {
+  const conta = await exigirAdmin();
+  if (!cloudflareConfigurado) return;
+
+  const supabase = clienteAdmin();
+  const { data: live } = await supabase
+    .from("lives")
+    .select("titulo")
+    .eq("id", liveId)
+    .maybeSingle<{ titulo: string }>();
+
+  if (!live) return;
+
+  try {
+    const input = await criarLiveInput(live.titulo);
+    await supabase.from("lives_privado").upsert({
+      live_id: liveId,
+      cf_input_uid: input.uid,
+      cf_rtmps_url: input.rtmpsUrl,
+      cf_stream_key: input.streamKey,
+      atualizado_em: new Date().toISOString(),
+    });
+
+    await registrar({
+      usuarioId: conta.usuarioId,
+      liveId,
+      acao: "admin_criou_canal_transmissao",
+      ip: await ipDoVisitante(),
+    });
+  } catch (erro) {
+    console.error("[admin] falha ao criar canal:", erro);
+  }
+
+  revalidatePath(`/admin/live/${liveId}`);
+}
+
+/**
+ * Cria a chave que assina os tokens de reprodução.
+ *
+ * A Cloudflare mostra o segredo UMA única vez. Por isso devolvemos o valor
+ * para a tela do painel: o dono copia e cola na Vercel na mesma hora.
+ * O segredo não é gravado no nosso banco.
+ */
+export async function gerarChaveDeAssinatura(): Promise<ChaveAssinaturaGerada> {
+  const conta = await exigirAdmin();
+
+  if (!cloudflareConfigurado) {
+    return { erro: "Configure primeiro o Cloudflare Stream (Passo 4 da Fase 0)." };
+  }
+
+  try {
+    const chave = await criarChaveDeAssinatura();
+
+    await registrar({
+      usuarioId: conta.usuarioId,
+      acao: "admin_gerou_chave_de_assinatura",
+      ip: await ipDoVisitante(),
+      detalhes: { chaveId: chave.id },
+    });
+
+    return { id: chave.id, jwk: chave.jwk };
+  } catch (erro) {
+    console.error("[admin] falha ao gerar chave de assinatura:", erro);
+    return {
+      erro: "A Cloudflare recusou o pedido. Confira se o token tem permissão de Stream: Edit.",
+    };
+  }
+}
+
+export async function derrubarSessao(usuarioId: string): Promise<void> {
+  const conta = await exigirAdmin();
+
+  await clienteAdmin().from("sessoes_ativas").delete().eq("usuario_id", usuarioId);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    acao: "admin_derrubou_sessao",
+    ip: await ipDoVisitante(),
+    detalhes: { alvo: usuarioId },
+  });
+
+  revalidatePath("/admin");
+}
+
+export async function alternarBanimento(
+  usuarioId: string,
+  banir: boolean,
+): Promise<void> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  await supabase.from("perfis").update({ banido: banir }).eq("id", usuarioId);
+  if (banir) {
+    await supabase.from("sessoes_ativas").delete().eq("usuario_id", usuarioId);
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    acao: banir ? "admin_baniu_usuario" : "admin_desbaniu_usuario",
+    ip: await ipDoVisitante(),
+    detalhes: { alvo: usuarioId },
+  });
+
+  revalidatePath("/admin");
+}

@@ -20,8 +20,21 @@ Decisões técnicas já verificadas na doc oficial: `docs/arquitetura.md`.
 
 ## Onde paramos (atualize esta seção ao avançar)
 
-Fase 0 em andamento, seguindo `docs/fase-0-configuracao.md` passo a passo com
-o dono, no chat:
+**O código da Fase 1 está escrito e no ar** (login, painel, compra, webhook,
+player, marca d'água, sessão única, auditoria, limite de tentativas). O que
+falta é **configuração**, não programação: nenhuma chave está preenchida, então
+o site funciona como uma casca. O caminho para ligar tudo está em
+`docs/fase-1-ligar-tudo.md` — 6 passos, cada um com teste.
+
+Situação real das chaves (conferida em 14/08/2026 pela página `/status`): as 9
+variáveis existem no projeto da Vercel mas **todas vazias**, inclusive
+`NEXT_PUBLIC_SITE_URL`. Nada do que depende de serviço externo funciona ainda.
+
+Ordem de dependência (não dá para pular): Supabase → SQL do
+`supabase/schema.sql` → virar admin → Mercado Pago → `MP_WEBHOOK_SECRET` →
+Cloudflare Stream → chave de assinatura (gerada em `/admin/configuracao`).
+
+Da Fase 0, o que já estava resolvido:
 
 - ✅ **Passo 1 (Vercel):** projeto importado e no ar. O dono criou uma conta
   Vercel separada (espaço "CLAN MAROMBA", plano Hobby) para não dividir a cota
@@ -33,10 +46,11 @@ o dono, no chat:
   (US$ 20/mês) ou migrar o site para Cloudflare Workers + OpenNext
   (US$ 0–5/mês, uso comercial permitido, e ele já será cliente Cloudflare por
   causa do Stream — esta é a recomendação).
-- ⬜ **Passo 2:** Supabase — 3 chaves
-- ⬜ **Passo 3:** Mercado Pago — Access Token de teste
-- ⬜ **Passo 4:** Cloudflare Stream — 3 chaves (é o passo pago, US$ 5)
-- ⬜ **Passo 5:** conferir `/status` todo verde → só então começa a Fase 1
+- ⬜ **Supabase** — 3 chaves + rodar o SQL + desligar "Confirm email" + admin
+- ⬜ **Mercado Pago** — Access Token de teste
+- ⬜ **Webhook do MP** — `MP_WEBHOOK_SECRET`
+- ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
+- ⬜ **Chave de assinatura** — 2 valores, gerados em `/admin/configuracao`
 
 Notas de ambiente (revisado em 14/08/2026): `api.vercel.com` **não está mais
 bloqueado** — o 403 que aparecia era a própria Vercel dizendo "falta token", não
@@ -46,6 +60,13 @@ cadastrar as chaves à mão no painel**: token e segredos não devem passar pelo
 chat. O conector oficial da Vercel (MCP) segue disponível e é somente leitura
 (times, projetos, deployments, logs de build) — use ele para conferir estado.
 
+Decisão do dono (14/08/2026): ele criou um token de API da Vercel e optou por
+mantê-lo ativo até o projeto terminar, ciente de que ficou registrado no
+histórico do chat. Ele deve ser revogado em
+<https://vercel.com/account/tokens> no fim do projeto. Isso **não muda** a
+regra das outras chaves: Supabase, Mercado Pago e Cloudflare continuam sendo
+coladas só no painel da Vercel.
+
 Dados úteis da conta Vercel (não são segredo): time `CLAN MAROMBA`,
 slug `clan-maromba`, id `team_zig0KwdVAkpx5eQnHvEWCmqX`; projeto `clan-maromba`,
 id `prj_5js4m3DfI4nNQQgQ6jdWxYIm9JBv`, framework Next.js. As 9 chaves da Fase 0
@@ -54,13 +75,14 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
 
 ## Fases (aprovação do dono entre elas)
 
-- **Fase 0 (em andamento):** esqueleto + página `/status` (testa conexões) +
+- **Fase 0 (concluída no código):** esqueleto + página `/status` +
   guia `docs/fase-0-configuracao.md`.
-- **Fase 1 (MVP):** cadastro/login (Supabase) → página da live com compra →
-  Checkout Pro em teste → liberação via webhook assinado → player HLS.js com
-  token assinado renovável → marca d'água → sessão única → admin mínimo
-  (criar live, ver RTMP+key, no ar/encerrada, compradores, banir/derrubar) →
-  logs de auditoria. Termina com teste completo junto com o dono.
+- **Fase 1 (código pronto, aguardando as chaves):** cadastro/login (Supabase) →
+  página da live com compra → Checkout Pro em teste → liberação via webhook
+  assinado → player HLS.js com token assinado renovável → marca d'água →
+  sessão única → admin (criar live, ver RTMP+key, no ar/encerrada, compradores,
+  banir/derrubar) → logs de auditoria. Termina com o teste de ponta a ponta
+  descrito em `docs/fase-1-ligar-tudo.md`.
 - **Fase 2:** replay pago, cupons, e-mail de confirmação, chat, home com agenda.
 - **Fase 3:** credenciais MP de produção, domínio próprio, checklist do dia da
   live (OBS: resolução/bitrate/keyframe, abrir/encerrar, plano B).
@@ -91,4 +113,28 @@ CI roda lint + typecheck + build em todo push (`.github/workflows/ci.yml`).
   simples (já usado em `src/lib/env.ts` e `src/lib/checks.ts`).
 - Tema escuro fixo, mobile-first; tokens de cor em `src/app/globals.css`.
 - A página `/status` nunca exibe valores de chaves — só "ok/erro/faltando".
-  A partir da Fase 1 ela deve ficar restrita ao admin.
+  Ela se tranca sozinha assim que existe um admin em `perfis` (antes disso
+  precisa ficar aberta, senão o dono não consegue conferir o Supabase no
+  passo que justamente cria o admin).
+- Nada que seja segredo entra em tabela lida pelo navegador: a stream key mora
+  em `lives_privado`, que **não tem nenhuma policy de RLS** — só o servidor
+  (chave service_role) enxerga.
+
+## Mapa do código (Fase 1)
+
+- `supabase/schema.sql` — tabelas, RLS e a função de limite de tentativas.
+  É o arquivo que o dono cola no SQL Editor.
+- `src/lib/config.ts` — lê as env vars e expõe os `xConfigurado`. Nenhuma tela
+  quebra quando falta chave: elas checam esses booleanos e mostram aviso.
+- `src/lib/supabase/` — três clientes: `navegador`, `servidor` (respeita RLS) e
+  `admin` (service_role, só no servidor).
+- `src/proxy.ts` — o antigo middleware (renomeado no Next 16); renova a sessão.
+- `src/lib/sessao.ts` — sessão única (cookie `cm_sessao` × linha no banco).
+- `src/lib/cloudflare.ts` — cria live input, assina o JWT RS256, consulta se o
+  OBS está conectado.
+- `src/lib/mercadopago.ts` — cria a preferência e **valida a assinatura** do
+  webhook (a trava que impede liberar acesso de graça).
+- `src/app/api/webhooks/mercadopago/route.ts` — única rota que libera acesso.
+- `src/app/api/token/route.ts` — emite o token de 5 min do player.
+- `src/components/Player.tsx` — HLS.js com loader que troca o token a cada
+  pedido, heartbeat de sessão e marca d'água que se recria se for removida.

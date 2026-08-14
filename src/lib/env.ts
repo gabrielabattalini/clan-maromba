@@ -54,6 +54,16 @@ export const VARIAVEIS: VarInfo[] = [
     descricao: "Assinatura secreta do webhook do Mercado Pago",
     fase: 1,
   },
+  {
+    nome: "CLOUDFLARE_STREAM_SIGNING_KEY_ID",
+    descricao: "ID da chave que assina os tokens de reprodução (gerada em /admin/configuracao)",
+    fase: 1,
+  },
+  {
+    nome: "CLOUDFLARE_STREAM_SIGNING_KEY_JWK",
+    descricao: "Chave secreta que assina os tokens de reprodução (gerada em /admin/configuracao)",
+    fase: 1,
+  },
 ];
 
 export function definida(nome: string): boolean {

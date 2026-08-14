@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+
+import { Cabecalho } from "@/components/Cabecalho";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,7 +21,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-dvh bg-fundo text-texto">{children}</body>
+      <body className="min-h-dvh bg-fundo text-texto">
+        <Cabecalho />
+        {children}
+      </body>
     </html>
   );
 }
