@@ -250,3 +250,72 @@ export async function rankingDaCategoria(
         a.desde.localeCompare(b.desde),
     );
 }
+
+/** Uma linha da conferência do dono: com nome, e-mail e horários. */
+export type LinhaDeConferencia = {
+  usuarioId: string;
+  nome: string;
+  email: string;
+  pontos: number;
+  exatos: number;
+  /** Primeiro envio do palpite. */
+  palpitouEm: string;
+  /** Última alteração — é este que diz se valeu. */
+  alteradoEm: string;
+  /** Mexeu no palpite depois de a categoria fechar. */
+  depoisDeFechar: boolean;
+  /** Mexeu no palpite depois de o resultado sair. */
+  depoisDoResultado: boolean;
+};
+
+/**
+ * A classificação com nome, e-mail e horários — só para o painel.
+ *
+ * Serve para o dono conferir se o bolão foi limpo antes de pagar. O caso que
+ * ele quer pegar: esquecer de fechar a categoria e alguém palpitar já sabendo
+ * o resultado. Vale o `atualizado_em`, e não o `criado_em`: corrigir o
+ * palpite depois do resultado é o mesmo golpe que palpitar depois.
+ */
+export async function conferenciaDaCategoria(
+  categoriaId: string,
+): Promise<LinhaDeConferencia[]> {
+  const [categoria, palpites, resultados] = await Promise.all([
+    buscarCategoria(categoriaId),
+    listarPalpites([categoriaId]),
+    listarResultados([categoriaId]),
+  ]);
+
+  if (!categoria || palpites.length === 0) return [];
+
+  const resultado = resultados[0];
+  const oficial = resultado ? topCinco(resultado) : null;
+
+  const { data: perfis } = await clienteAdmin()
+    .from("perfis")
+    .select("id, nome, email")
+    .in("id", [...new Set(palpites.map((p) => p.usuario_id))])
+    .returns<{ id: string; nome: string; email: string }[]>();
+
+  const porId = new Map((perfis ?? []).map((p) => [p.id, p]));
+
+  return palpites
+    .map((palpite) => {
+      const meu = topCinco(palpite);
+      const perfil = porId.get(palpite.usuario_id);
+
+      return {
+        usuarioId: palpite.usuario_id,
+        nome: perfil?.nome || "(sem nome)",
+        email: perfil?.email ?? "",
+        pontos: oficial ? pontuar(meu, oficial) : 0,
+        exatos: oficial ? acertosExatos(meu, oficial) : 0,
+        palpitouEm: palpite.criado_em,
+        alteradoEm: palpite.atualizado_em,
+        depoisDeFechar: palpite.atualizado_em > categoria.fecha_em,
+        depoisDoResultado: resultado
+          ? palpite.atualizado_em > resultado.publicado_em
+          : false,
+      };
+    })
+    .sort((a, b) => b.pontos - a.pontos || b.exatos - a.exatos);
+}

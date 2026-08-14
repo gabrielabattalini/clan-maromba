@@ -243,6 +243,12 @@ quem tem ingresso**, não produto avulso.
 - **Palpitar exige as duas coisas**: ingresso da transmissão (o bolão é
   vinculado à live) e o ticket daquela categoria. Quem decide é
   `categoriasLiberadas`.
+- **`conferenciaDaCategoria`** é a tela de conferência do dono: todo palpite
+  com nome, e-mail e hora da última alteração, marcando quem mexeu depois de
+  a categoria fechar ou depois de o resultado sair. Ele confere isso antes de
+  pagar e devolve o dinheiro de quem entrou fora da hora. Vale o
+  `atualizado_em`, não o `criado_em` — corrigir o palpite depois do resultado
+  é o mesmo golpe que palpitar depois.
 - **`vendasPorCategoria`** alimenta o painel com quantos tickets cada
   categoria vendeu. É informação de venda; o prêmio continua sendo fixo e
   anunciado antes, no campo `bolao_categorias.premio`.

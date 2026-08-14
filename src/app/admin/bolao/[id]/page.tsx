@@ -16,6 +16,7 @@ import {
   listarAtletas,
   listarPalpites,
   campeoes,
+  conferenciaDaCategoria,
   listarResultados,
   rankingDaCategoria,
   ticketsDoBolao,
@@ -23,7 +24,7 @@ import {
   vendasPorCategoria,
 } from "@/lib/bolao";
 import { exigirAdmin } from "@/lib/conta";
-import { janelaLegivel, precoEmReais } from "@/lib/formato";
+import { dataCurta, janelaLegivel, precoEmReais } from "@/lib/formato";
 import { buscarLivePorId } from "@/lib/lives";
 
 export const metadata: Metadata = { title: "Bolão" };
@@ -52,6 +53,8 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
     ]);
 
   const vencedores = campeoes(classificacao);
+  const conferencia = await conferenciaDaCategoria(categoria.id);
+  const suspeitos = conferencia.filter((l) => l.depoisDoResultado || l.depoisDeFechar);
 
   const ticket = tickets.get(categoria.id);
   const vendidos = vendas.get(categoria.id) ?? 0;
@@ -228,6 +231,86 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
           </>
         )}
       </section>
+
+      {/* ---------------- Conferência ---------------- */}
+      {conferencia.length > 0 ? (
+        <section className="cartao mt-6 p-6">
+          <h2 className="display text-xl">Conferência</h2>
+          <p className="mt-1 text-sm leading-relaxed text-texto-fraco">
+            Todos os palpites desta categoria, com a hora da última alteração.
+            Serve para você conferir antes de pagar: se esquecer de fechar e
+            alguém mexer no palpite depois do resultado, aparece marcado aqui.
+          </p>
+
+          {suspeitos.length > 0 ? (
+            <p className="aviso aviso-erro mt-4">
+              <strong>{suspeitos.length}</strong>{" "}
+              {suspeitos.length === 1 ? "palpite mexido" : "palpites mexidos"} depois
+              da hora. Estão marcados na lista — devolva o dinheiro deles antes de
+              apurar.
+            </p>
+          ) : (
+            <p className="aviso aviso-ok mt-4">
+              Nenhum palpite foi mexido depois da hora. O bolão está limpo.
+            </p>
+          )}
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-lg border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-borda text-left">
+                  <th className="py-2 pr-3 font-semibold">Quem</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Pts</th>
+                  <th className="py-2 pr-3 font-semibold">Palpitou</th>
+                  <th className="py-2 font-semibold">Última alteração</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conferencia.map((linha) => {
+                  const foraDaHora = linha.depoisDoResultado || linha.depoisDeFechar;
+
+                  return (
+                    <tr
+                      key={linha.usuarioId}
+                      className={`border-b border-borda/60 ${
+                        foraDaHora ? "text-destaque" : ""
+                      }`}
+                    >
+                      <td className="py-2 pr-3">
+                        <span className="font-medium">{linha.nome}</span>
+                        <span className="block text-xs text-texto-apagado">
+                          {linha.email}
+                        </span>
+                      </td>
+                      <td className="numero py-2 pr-3 text-right">
+                        {linha.pontos}
+                        <span className="block text-xs text-texto-apagado">
+                          {linha.exatos} ex.
+                        </span>
+                      </td>
+                      <td className="numero py-2 pr-3 text-xs">
+                        {dataCurta(linha.palpitouEm)}
+                      </td>
+                      <td className="numero py-2 text-xs">
+                        {dataCurta(linha.alteradoEm)}
+                        {linha.depoisDoResultado ? (
+                          <span className="block text-xs font-bold uppercase">
+                            depois do resultado
+                          </span>
+                        ) : linha.depoisDeFechar ? (
+                          <span className="block text-xs font-bold uppercase">
+                            depois de fechar
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <p className="mt-6 text-sm text-texto-fraco">
         Classificação pública:{" "}
