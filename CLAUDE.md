@@ -38,12 +38,19 @@ o dono, no chat:
 - ⬜ **Passo 4:** Cloudflare Stream — 3 chaves (é o passo pago, US$ 5)
 - ⬜ **Passo 5:** conferir `/status` todo verde → só então começa a Fase 1
 
-Notas de ambiente: `api.vercel.com` é bloqueado pela política de rede das
-sessões (403 no proxy) — liberável em Network access → Custom, mas só vale
-para sessões novas. O conector oficial da Vercel (MCP) é a alternativa e não
-passa por esse bloqueio, porém é **somente leitura** (projetos, deployments,
-logs de build): cadastrar variável e disparar redeploy continua manual — o que
-é melhor mesmo, já que as chaves são secretas e não devem passar pelo chat.
+Notas de ambiente (revisado em 14/08/2026): `api.vercel.com` **não está mais
+bloqueado** — o 403 que aparecia era a própria Vercel dizendo "falta token", não
+o proxy. Com um token de API da Vercel dá para ler e escrever (criar/apagar
+variável de ambiente, disparar redeploy). Mesmo assim, **a regra continua sendo
+cadastrar as chaves à mão no painel**: token e segredos não devem passar pelo
+chat. O conector oficial da Vercel (MCP) segue disponível e é somente leitura
+(times, projetos, deployments, logs de build) — use ele para conferir estado.
+
+Dados úteis da conta Vercel (não são segredo): time `CLAN MAROMBA`,
+slug `clan-maromba`, id `team_zig0KwdVAkpx5eQnHvEWCmqX`; projeto `clan-maromba`,
+id `prj_5js4m3DfI4nNQQgQ6jdWxYIm9JBv`, framework Next.js. As 9 chaves da Fase 0
+já existem como variáveis do tipo *sensitive* no projeto (a API não devolve o
+valor, então só o painel ou o `/status` diz se estão preenchidas).
 
 ## Fases (aprovação do dono entre elas)
 
