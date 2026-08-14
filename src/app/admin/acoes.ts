@@ -672,3 +672,79 @@ export async function definirResultado(
   revalidatePath(`/admin/bolao/${categoriaId}`);
   return { aviso: "Resultado publicado. O ranking já está valendo." };
 }
+
+/**
+ * Fecha ou adia os palpites de uma categoria na mão.
+ *
+ * O horário automático continua valendo como rede de segurança — se o dono
+ * estiver ocupado comentando e esquecer, a categoria fecha sozinha e ninguém
+ * palpita sabendo do prejudging. Estes botões são para o dia real: evento
+ * atrasou, adia; começou antes, fecha agora.
+ *
+ * Não existe campo novo: fechar é empurrar `fecha_em` para agora, e adiar é
+ * empurrar para a frente. Uma informação só, um lugar só.
+ */
+export async function ajustarFechamentoDoBolao(
+  categoriaId: string,
+  minutos: number | "agora",
+): Promise<void> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: categoria } = await supabase
+    .from("bolao_categorias")
+    .select("fecha_em")
+    .eq("id", categoriaId)
+    .maybeSingle<{ fecha_em: string }>();
+
+  if (!categoria) return;
+
+  const agora = Date.now();
+  let novo: Date;
+
+  if (minutos === "agora") {
+    novo = new Date(agora);
+  } else {
+    // Adiar sempre conta a partir de agora quando a categoria já fechou —
+    // senão "adiar 30 min" de um prazo vencido há uma hora não reabriria nada.
+    const base = Math.max(agora, new Date(categoria.fecha_em).getTime());
+    novo = new Date(base + minutos * 60 * 1000);
+  }
+
+  await supabase
+    .from("bolao_categorias")
+    .update({ fecha_em: novo.toISOString() })
+    .eq("id", categoriaId);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    acao: minutos === "agora" ? "admin_fechou_palpites" : "admin_adiou_palpites",
+    ip: await ipDoVisitante(),
+    detalhes: { categoria: categoriaId, fecha_em: novo.toISOString() },
+  });
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  revalidatePath("/admin");
+}
+
+/** Marca outro horário exato de fechamento. */
+export async function mudarFechamentoDoBolao(
+  categoriaId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const quando = instanteEmBrasilia(String(dados.get("fecha_em") ?? ""));
+  if (!quando) return { erro: "Data inválida." };
+
+  const { error } = await clienteAdmin()
+    .from("bolao_categorias")
+    .update({ fecha_em: quando })
+    .eq("id", categoriaId);
+
+  if (error) return { erro: "Não consegui mudar o horário." };
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  return { aviso: "Horário atualizado." };
+}
