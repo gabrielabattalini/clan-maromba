@@ -6,18 +6,22 @@ import { ajustarFechamentoDoBolao } from "@/app/admin/acoes";
 import {
   FormularioAtletas,
   FormularioFechamento,
+  FormularioPremioDaCategoria,
   FormularioResultado,
+  FormularioTicketDoBolao,
 } from "@/components/FormularioBolao";
 import {
-  categoriaAberta,
   buscarCategoria,
+  categoriaAberta,
   listarAtletas,
   listarPalpites,
   listarResultados,
+  ticketsDoBolao,
   topCinco,
+  vendasPorCategoria,
 } from "@/lib/bolao";
 import { exigirAdmin } from "@/lib/conta";
-import { janelaLegivel } from "@/lib/formato";
+import { janelaLegivel, precoEmReais } from "@/lib/formato";
 import { buscarLivePorId } from "@/lib/lives";
 
 export const metadata: Metadata = { title: "Bolão" };
@@ -35,11 +39,16 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
   const live = await buscarLivePorId(categoria.live_id);
   if (!live) notFound();
 
-  const [atletas, palpites, resultados] = await Promise.all([
+  const [atletas, palpites, resultados, tickets, vendas] = await Promise.all([
     listarAtletas([categoria.id]),
     listarPalpites([categoria.id]),
     listarResultados([categoria.id]),
+    ticketsDoBolao(live.id),
+    vendasPorCategoria(live.id),
   ]);
+
+  const ticket = tickets.get(categoria.id);
+  const vendidos = vendas.get(categoria.id) ?? 0;
 
   const resultado = resultados[0] ?? null;
   const aberta = categoriaAberta(categoria);
@@ -65,6 +74,56 @@ export default async function PaginaCategoriaAdmin({ params }: Props) {
           {aberta ? "Aberta" : "Fechada"}
         </span>
       </header>
+
+      {/* ---------------- Venda e prêmio ---------------- */}
+      <section className="cartao mt-8 p-6">
+        <h2 className="display text-xl">Ticket e prêmio</h2>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg border border-borda p-4">
+            <p className="etiqueta">Tickets vendidos</p>
+            <p className="numero display mt-1 text-3xl">{vendidos}</p>
+            {ticket ? (
+              <p className="numero mt-1 text-xs text-texto-apagado">
+                {precoEmReais(ticket.preco_centavos)} cada ·{" "}
+                {precoEmReais(vendidos * ticket.preco_centavos)} no total
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-borda p-4">
+            <p className="etiqueta">Palpites feitos</p>
+            <p className="numero display mt-1 text-3xl">{palpites.length}</p>
+            <p className="mt-1 text-xs text-texto-apagado">
+              Quem comprou o ticket e ainda não palpitou entra na diferença.
+            </p>
+          </div>
+        </div>
+
+        {ticket ? (
+          <p className="mt-4 text-sm text-texto-fraco">
+            À venda por <strong>{precoEmReais(ticket.preco_centavos)}</strong> na
+            página do bolão. Para mudar o preço, tire este de venda na seção
+            Ingressos da live e crie outro.
+          </p>
+        ) : (
+          <>
+            <p className="mt-4 text-sm text-texto-fraco">
+              Esta categoria ainda não tem ticket à venda — ninguém consegue
+              palpitar nela.
+            </p>
+            <FormularioTicketDoBolao categoriaId={categoria.id} />
+          </>
+        )}
+
+        <div className="mt-6 border-t border-borda pt-5">
+          <h3 className="text-sm font-semibold">Prêmio desta categoria</h3>
+          <FormularioPremioDaCategoria
+            categoriaId={categoria.id}
+            premioAtual={categoria.premio}
+          />
+        </div>
+      </section>
 
       {/* ---------------- Fechamento ---------------- */}
       <section className="cartao mt-8 p-6">

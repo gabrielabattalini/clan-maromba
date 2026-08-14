@@ -42,6 +42,11 @@ suas contas, sua live e seus logs continuam onde estão.
 2. Cole o bloco abaixo **inteiro**
 3. Clique em **Run**
 
+O passe está a **R$ 19,90**: sexta + sábado avulsos dão R$ 19,80, então o
+passe completo vira a escolha óbvia por dez centavos a mais. Os quatro dias
+continuam existindo porque a tabela **Programação** da home é montada a
+partir deles — apagar os dias apagaria a propaganda dos horários.
+
 O comando acha a live **pelo nome**: qualquer live com "Olympia" no título.
 Não depende do endereço, que muda sozinho quando você apaga e recria uma live.
 Se achar nenhuma ou mais de uma, ele avisa e não faz nada. Rodar duas vezes
@@ -94,7 +99,7 @@ begin
     -- vencer, o site passa a cobrar R$ 39,90 sozinho.
     (v_live, 'Passe completo',
      'Os quatro dias, do começo ao fim. Inclui as finais de sábado.',
-     2990, 3990,
+     1990, 2990,
      '2026-09-17 23:59:00-03', null, null, 100, 0),
 
     (v_live, 'Dia 1 — Quinta 24/09',
@@ -123,7 +128,7 @@ end $$;
 
 ## O que cada número significa
 
-**`2990` e `3990`** — R$ 29,90 agora, R$ 39,90 depois. O riscado na tela é o
+**`1990` e `2990`** — R$ 19,90 agora, R$ 29,90 depois. O riscado na tela é o
 preço cheio, e ele **passa a ser cobrado de verdade** quando a promoção vencer.
 É o que faz o contador ser honesto em vez de enfeite.
 
@@ -161,7 +166,7 @@ quebra.
 Abra a home do site. Você deve ver:
 
 - A manchete **Mister Olympia 2026**, com **24 a 27 de setembro** embaixo
-- O passe completo em destaque, com **R$ 39,90 riscado**, **R$ 29,90** grande,
+- O passe completo em destaque, com **R$ 29,90 riscado**, **R$ 19,90** grande,
   o contador regressivo e "Restam 100 ingressos"
 - Os quatro dias a R$ 9,90 cada
 - A tabela **Programação**, em horário de Brasília, montada a partir das

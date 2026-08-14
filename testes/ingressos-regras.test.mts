@@ -25,6 +25,7 @@ function ingresso(extra: Partial<Ingresso>): Ingresso {
     termina_em: null,
     limite: null,
     so_bolao: false,
+    categoria_bolao_id: null,
     ordem: 0,
     ativo: true,
     criado_em: "2026-08-01T00:00:00Z",

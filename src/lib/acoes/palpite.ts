@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { registrar } from "@/lib/auditoria";
-import { buscarCategoria, categoriaAberta, listarAtletas } from "@/lib/bolao";
+import {
+  buscarCategoria,
+  categoriaAberta,
+  categoriasLiberadas,
+  listarAtletas,
+} from "@/lib/bolao";
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { comprouAlgumaCoisa } from "@/lib/ingressos";
@@ -45,12 +50,18 @@ export async function salvarPalpite(
   }
   if (conta.perfil?.banido) return { erro: "Esta conta está bloqueada." };
 
-  // O bolão é benefício de quem comprou. Vale qualquer ingresso da live, e
-  // não só o que cobre este instante: quem comprou o domingo palpita na
-  // quinta, muito antes da janela dele abrir.
+  // Duas condições: ingresso da transmissão (o bolão é vinculado à live) e o
+  // ticket desta categoria (um ticket vale um bolão). A checagem olha
+  // qualquer ingresso da live, e não só o que cobre este instante: quem
+  // comprou o domingo palpita na quinta, antes da janela dele abrir.
   const ehAdmin = Boolean(conta.perfil?.admin);
-  if (!ehAdmin && !(await comprouAlgumaCoisa(conta.usuarioId, live.id))) {
-    return { erro: "O bolão é para quem tem ingresso desta live." };
+  const liberadas = await categoriasLiberadas(conta.usuarioId, live.id, ehAdmin);
+  if (!liberadas.has(categoria.id)) {
+    return {
+      erro: (await comprouAlgumaCoisa(conta.usuarioId, live.id))
+        ? `Você ainda não tem o ticket de ${categoria.nome}.`
+        : "O bolão é para quem tem ingresso desta live.",
+    };
   }
 
   // A trava do horário é o que impede palpitar já sabendo o resultado.

@@ -2,22 +2,28 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BotaoComprar } from "@/components/BotaoComprar";
 import { FormularioPalpite } from "@/components/FormularioPalpite";
+import { comprarIngresso } from "@/lib/acoes/compra";
 import {
   PONTOS,
   PONTOS_MAXIMOS_POR_CATEGORIA,
   categoriaAberta,
+  categoriasLiberadas,
   listarAtletas,
   listarCategorias,
   listarResultados,
   meusPalpites,
   pontuar,
+  ticketsDoBolao,
   topCinco,
 } from "@/lib/bolao";
+import { mercadoPagoConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
-import { janelaLegivel } from "@/lib/formato";
+import { janelaLegivel, precoEmReais } from "@/lib/formato";
 import { comprouAlgumaCoisa } from "@/lib/ingressos";
 import { buscarLivePorSlug } from "@/lib/lives";
+import type { Ingresso } from "@/lib/tipos";
 
 export const dynamic = "force-dynamic";
 
@@ -43,17 +49,20 @@ export default async function PaginaDoBolao({ params }: Props) {
   if (categorias.length === 0) notFound();
 
   const ids = categorias.map((c) => c.id);
-  const [atletas, resultados, meus, temIngresso] = await Promise.all([
+  const ehAdmin = Boolean(conta?.perfil?.admin);
+
+  const [atletas, resultados, meus, tickets, liberadas, temALive] = await Promise.all([
     listarAtletas(ids),
     listarResultados(ids),
     conta ? meusPalpites(conta.usuarioId, ids) : Promise.resolve(new Map()),
+    ticketsDoBolao(live.id),
+    conta
+      ? categoriasLiberadas(conta.usuarioId, live.id, ehAdmin)
+      : Promise.resolve(new Set<string>()),
     conta
       ? comprouAlgumaCoisa(conta.usuarioId, live.id)
       : Promise.resolve(false),
   ]);
-
-  // O bolão é benefício de quem comprou; o dono entra para poder testar.
-  const podePalpitar = temIngresso || Boolean(conta?.perfil?.admin);
 
   const nomeDoAtleta = new Map(atletas.map((a) => [a.id, a.nome]));
 
@@ -68,16 +77,19 @@ export default async function PaginaDoBolao({ params }: Props) {
 
       <h1 className="display mt-5 text-[clamp(2.25rem,7vw,3.75rem)]">Bolão</h1>
       <p className="mt-3 max-w-prose leading-relaxed text-texto-fraco">
-        Diga quem você acha que fica em cada posição. Quem somar mais pontos
-        leva o prêmio. É um extra de quem tem ingresso — não se paga nada
-        para palpitar.
+        Diga quem fica no top 5 de cada categoria. Quem somar mais pontos
+        naquela categoria leva o prêmio dela. Cada categoria é disputada
+        separado, com o seu ticket.
       </p>
 
-      {live.bolao_premio ? (
-        <div className="cartao mt-6 p-5">
-          <p className="etiqueta">Prêmio</p>
-          <p className="mt-1.5 font-semibold">{live.bolao_premio}</p>
-        </div>
+      {!temALive && !ehAdmin ? (
+        <p className="aviso aviso-atencao mt-6">
+          O bolão é para quem tem ingresso da transmissão. Pegue o seu na{" "}
+          <Link className="font-semibold hover:underline" href={`/live/${live.slug}`}>
+            página da live
+          </Link>
+          .
+        </p>
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -91,10 +103,6 @@ export default async function PaginaDoBolao({ params }: Props) {
           >
             Entrar para palpitar
           </Link>
-        ) : !podePalpitar ? (
-          <Link className="botao" href={`/live/${live.slug}`}>
-            Comprar ingresso e palpitar
-          </Link>
         ) : null}
       </div>
 
@@ -103,6 +111,9 @@ export default async function PaginaDoBolao({ params }: Props) {
         const daCategoria = atletas.filter((a) => a.categoria_id === categoria.id);
         const meu = meus.get(categoria.id);
         const aberta = categoriaAberta(categoria);
+
+        const ticket = tickets.get(categoria.id);
+        const liberada = liberadas.has(categoria.id);
 
         const oficial = resultados.find((r) => r.categoria_id === categoria.id);
         // Quanto a pessoa fez nesta categoria. Sem isso ela vê o pódio e o
@@ -113,7 +124,15 @@ export default async function PaginaDoBolao({ params }: Props) {
         return (
           <section key={categoria.id} className="cartao mt-6 p-6">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="display text-xl">{categoria.nome}</h2>
+              <div>
+                <h2 className="display text-xl">{categoria.nome}</h2>
+                {categoria.premio ? (
+                  <p className="mt-1 text-sm text-texto-fraco">
+                    <span className="etiqueta !text-destaque-fraco">Prêmio</span>{" "}
+                    {categoria.premio}
+                  </p>
+                ) : null}
+              </div>
               <span
                 className={`numero text-xs font-bold uppercase tracking-wider ${
                   aberta ? "text-ok" : "text-texto-apagado"
@@ -189,13 +208,15 @@ export default async function PaginaDoBolao({ params }: Props) {
               <p className="mt-4 text-sm text-texto-fraco">
                 Entre na sua conta para palpitar.
               </p>
-            ) : !podePalpitar ? (
+            ) : !temALive ? (
               <p className="mt-4 text-sm text-texto-fraco">
-                O palpite é para quem tem ingresso desta live.{" "}
+                Primeiro o ingresso da transmissão.{" "}
                 <Link className="text-destaque hover:underline" href={`/live/${live.slug}`}>
                   Ver ingressos
                 </Link>
               </p>
+            ) : !liberada ? (
+              <TicketDaCategoria ticket={ticket} pagamentoLigado={mercadoPagoConfigurado} />
             ) : (
               <>
                 {meu ? (
@@ -284,6 +305,47 @@ function ResultadoOficial({
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/** O convite para comprar o ticket daquela categoria. */
+function TicketDaCategoria({
+  ticket,
+  pagamentoLigado,
+}: {
+  ticket: Ingresso | undefined;
+  pagamentoLigado: boolean;
+}) {
+  if (!ticket) {
+    return (
+      <p className="mt-4 text-sm text-texto-fraco">
+        O ticket desta categoria ainda não está à venda.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-borda bg-fundo-2 p-4">
+      <p className="text-sm text-texto-fraco">
+        Para palpitar nesta categoria você precisa do ticket dela.
+      </p>
+      <p className="numero display mt-1 text-2xl">
+        {precoEmReais(ticket.preco_centavos)}
+      </p>
+
+      <div className="mt-3">
+        {pagamentoLigado ? (
+          <BotaoComprar
+            acao={comprarIngresso.bind(null, ticket.id)}
+            rotulo={`Comprar ticket · ${precoEmReais(ticket.preco_centavos)}`}
+          />
+        ) : (
+          <p className="aviso aviso-atencao">
+            O pagamento ainda não foi ligado neste site.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

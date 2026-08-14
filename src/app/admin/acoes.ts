@@ -619,6 +619,80 @@ export async function salvarAtletas(
   return { aviso: `${nomes.length} atletas na lista.` };
 }
 
+/** O prêmio anunciado desta categoria. */
+export async function salvarPremioDaCategoria(
+  categoriaId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const premio = String(dados.get("premio") ?? "").trim().slice(0, 300);
+
+  const { error } = await clienteAdmin()
+    .from("bolao_categorias")
+    .update({ premio })
+    .eq("id", categoriaId);
+
+  if (error) return { erro: "Não consegui salvar o prêmio." };
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  return { aviso: premio ? "Prêmio salvo." : "Prêmio removido." };
+}
+
+/**
+ * Cria o ticket de venda de uma categoria do bolão.
+ *
+ * Nasce sempre com `so_bolao`: ele não pode abrir o player em hipótese
+ * nenhuma. E é um por categoria — quem quer palpitar nas três compra três.
+ */
+export async function criarTicketDoBolao(
+  categoriaId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: categoria } = await supabase
+    .from("bolao_categorias")
+    .select("id, live_id, nome")
+    .eq("id", categoriaId)
+    .maybeSingle<{ id: string; live_id: string; nome: string }>();
+
+  if (!categoria) return { erro: "Categoria não encontrada." };
+
+  const preco = centavosDeTexto(String(dados.get("preco") ?? ""));
+  if (preco === null) return { erro: "Preço inválido. Exemplo: 5,00" };
+
+  const { count } = await supabase
+    .from("ingressos")
+    .select("id", { count: "exact", head: true })
+    .eq("categoria_bolao_id", categoriaId);
+
+  if ((count ?? 0) > 0) {
+    return { erro: "Esta categoria já tem ticket. Tire o antigo de venda antes." };
+  }
+
+  const { error } = await supabase.from("ingressos").insert({
+    live_id: categoria.live_id,
+    nome: `Bolão · ${categoria.nome}`,
+    descricao: "Dá direito a palpitar nesta categoria. Não abre a transmissão.",
+    preco_centavos: preco,
+    so_bolao: true,
+    categoria_bolao_id: categoria.id,
+    ordem: 90,
+  });
+
+  if (error) {
+    console.error("[bolao] falha ao criar ticket:", error.message);
+    return { erro: "Não consegui criar o ticket." };
+  }
+
+  revalidatePath(`/admin/bolao/${categoriaId}`);
+  return { aviso: "Ticket criado." };
+}
+
 /** Publica o top 5 oficial. É o que faz o ranking existir. */
 export async function definirResultado(
   categoriaId: string,
