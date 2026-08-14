@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { liveEstaNoAr } from "@/lib/ao-vivo";
 import { registrar } from "@/lib/auditoria";
 import { assinarTokenReproducao, enderecoDoManifesto } from "@/lib/cloudflare";
 import { assinaturaConfigurada } from "@/lib/config";
@@ -67,7 +68,7 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ erro: "live não encontrada" }, { status: 404 });
   }
 
-  if (live.estado !== "no_ar") {
+  if (!(await liveEstaNoAr(live))) {
     return NextResponse.json(
       { erro: "a live não está no ar", motivo: "fora_do_ar" },
       { status: 409 },

@@ -24,8 +24,8 @@ export default async function PaginaConfiguracao() {
         ← Voltar ao painel
       </Link>
 
-      <h1 className="mt-4 text-2xl font-bold">Configuração</h1>
-      <p className="mt-1 text-sm text-texto-fraco">
+      <h1 className="display mt-4 text-4xl">Configuração</h1>
+      <p className="mt-3 text-sm leading-relaxed text-texto-fraco">
         Duas coisas precisam ser ligadas uma única vez, e é aqui que elas se
         resolvem.
       </p>
@@ -33,7 +33,7 @@ export default async function PaginaConfiguracao() {
       {/* -------- Chave de assinatura do vídeo -------- */}
       <section className="cartao mt-8 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-bold">1. Proteção do vídeo</h2>
+          <h2 className="display text-xl">1. Proteção do vídeo</h2>
           <Situacao ligado={assinaturaConfigurada} />
         </div>
 
@@ -64,7 +64,7 @@ export default async function PaginaConfiguracao() {
       {/* -------- Webhook do Mercado Pago -------- */}
       <section className="cartao mt-6 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-bold">2. Aviso de pagamento</h2>
+          <h2 className="display text-xl">2. Aviso de pagamento</h2>
           <Situacao ligado={Boolean(MP_SEGREDO_WEBHOOK)} />
         </div>
 
@@ -123,11 +123,7 @@ export default async function PaginaConfiguracao() {
 
 function Situacao({ ligado }: { ligado: boolean }) {
   return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider ${
-        ligado ? "bg-ok/15 text-ok" : "bg-alerta/15 text-alerta"
-      }`}
-    >
+    <span className={`selo selo-neutro ${ligado ? "!text-ok" : "!text-alerta"}`}>
       {ligado ? "Ligado" : "Pendente"}
     </span>
   );

@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CampoCopiavel } from "@/components/CampoCopiavel";
 import {
   alternarBanimento,
+  apagarLive,
   criarCanalDeTransmissao,
   derrubarSessao,
   mudarEstadoDaLive,
 } from "@/app/admin/acoes";
+import { BotaoApagarLive } from "@/components/BotaoApagarLive";
+import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { estaTransmitindo } from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
-import { dataCurta, precoEmReais } from "@/lib/formato";
+import { dataCurta, precoEmReais, quandoAcontece } from "@/lib/formato";
 import { buscarDadosPrivados, buscarLivePorId } from "@/lib/lives";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { ROTULO_ESTADO, ROTULO_STATUS_COMPRA, type StatusCompra } from "@/lib/tipos";
@@ -61,30 +63,36 @@ export default async function PaginaLiveAdmin({ params }: Props) {
 
       <header className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">{live.titulo}</h1>
-          <p className="mt-1 text-sm text-texto-fraco">
-            {dataCurta(live.comeca_em)} · {precoEmReais(live.preco_centavos)} ·{" "}
+          <h1 className="display text-3xl">{live.titulo}</h1>
+          <p className="numero mt-2 text-sm text-texto-apagado">
+            {quandoAcontece(live)} · {precoEmReais(live.preco_centavos)} ·{" "}
             <Link className="hover:underline" href={`/live/${live.slug}`}>
               /live/{live.slug}
             </Link>
           </p>
         </div>
-        <span className="rounded-full bg-painel px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-texto-fraco">
-          {ROTULO_ESTADO[live.estado]}
+        <span className={`selo ${transmitindo ? "selo-vivo" : "selo-neutro"}`}>
+          {transmitindo ? (
+            <>
+              <span className="ponto-vivo" aria-hidden />
+              No ar
+            </>
+          ) : (
+            ROTULO_ESTADO[live.estado]
+          )}
         </span>
       </header>
 
       {/* ---------------- Estado da live ---------------- */}
       <section className="cartao mt-8 p-6">
-        <h2 className="text-base font-bold">Situação</h2>
+        <h2 className="display text-xl">Situação</h2>
         <p className="mt-1 text-sm text-texto-fraco">
           <strong>Rascunho:</strong> só você vê. <strong>Anunciada:</strong> aparece
-          na home e já pode ser comprada. <strong>No ar:</strong> libera o player
-          para quem comprou. <strong>Encerrada:</strong> fecha a transmissão.
+          na home e já pode ser comprada.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {(["rascunho", "anunciada", "no_ar", "encerrada"] as const).map((estado) => (
+          {(["rascunho", "anunciada"] as const).map((estado) => (
             <form key={estado} action={mudarEstadoDaLive.bind(null, live.id)}>
               <input type="hidden" name="estado" value={estado} />
               <button
@@ -97,20 +105,27 @@ export default async function PaginaLiveAdmin({ params }: Props) {
             </form>
           ))}
         </div>
+
+        <div className="mt-5 border-t border-borda pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">Transmissão</span>
+            <span
+              className={`text-sm font-bold ${transmitindo ? "text-ok" : "text-texto-fraco"}`}
+            >
+              {transmitindo ? "● No ar agora" : "○ Fora do ar"}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm text-texto-fraco">
+            Isto é automático: quem responde é a Cloudflare. Assim que o seu OBS
+            conectar, o player libera sozinho para quem comprou — e trava sozinho
+            quando você desligar. Você não precisa apertar nada no dia da live.
+          </p>
+        </div>
       </section>
 
       {/* ---------------- OBS ---------------- */}
       <section className="cartao mt-6 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-bold">Dados para o OBS</h2>
-          {privado?.cf_input_uid ? (
-            <span
-              className={`text-xs font-semibold ${transmitindo ? "text-ok" : "text-texto-fraco"}`}
-            >
-              {transmitindo ? "● OBS conectado" : "○ OBS desconectado"}
-            </span>
-          ) : null}
-        </div>
+        <h2 className="display text-xl">Dados para o OBS</h2>
 
         {privado?.cf_rtmps_url && privado.cf_stream_key ? (
           <>
@@ -157,15 +172,28 @@ export default async function PaginaLiveAdmin({ params }: Props) {
         )}
       </section>
 
+      {/* ---------------- Apagar ---------------- */}
+      <section className="cartao mt-6 border-destaque/30 p-6">
+        <h2 className="display text-xl">Apagar</h2>
+        <p className="mt-1 text-sm text-texto-fraco">
+          Serve para limpar live criada por engano ou duplicada. Live que já
+          tem compra paga não pode ser apagada — nesse caso o caminho é marcar
+          como encerrada.
+        </p>
+        <div className="mt-4">
+          <BotaoApagarLive acao={apagarLive.bind(null, live.id)} titulo={live.titulo} />
+        </div>
+      </section>
+
       {/* ---------------- Compradores ---------------- */}
       <section className="mt-10">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-texto-fraco">
-            Compradores
-          </h2>
-          <p className="text-sm text-texto-fraco">
+          <h2 className="etiqueta !text-texto-fraco">Compradores</h2>
+          <p className="numero text-sm text-texto-fraco">
             <strong className="text-texto">{pagantes.length}</strong> pagantes ·{" "}
-            <strong className="text-texto">{precoEmReais(faturamento)}</strong>
+            <strong className="display text-lg text-texto">
+              {precoEmReais(faturamento)}
+            </strong>
           </p>
         </div>
 

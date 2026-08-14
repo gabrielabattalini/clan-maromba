@@ -229,7 +229,9 @@ Agora o ensaio geral. Faça isso **antes** de anunciar a primeira live paga.
 
 **No site:**
 
-6. No painel, mude o estado da live para **No ar**
+6. Confira que a live está como **Anunciada** no painel. Você **não precisa
+   apertar nada** para colocá-la no ar: a Cloudflare avisa sozinha que o OBS
+   conectou, e o painel passa a mostrar **● No ar agora**
 7. Abra a live (pode ser no celular, na sua conta que já comprou) →
    **Assistir agora**
 8. O vídeo deve tocar, com seu nome e e-mail flutuando por cima
@@ -247,7 +249,9 @@ Agora o ensaio geral. Faça isso **antes** de anunciar a primeira live paga.
 12. **Derrubar/banir:** no painel, na lista de compradores, teste os botões
     **Derrubar** e **Banir**
 
-Quando terminar, mude a live para **Encerrada** e pare o OBS.
+Quando terminar, é só **parar o OBS** — o player trava sozinho em poucos
+segundos. Se quiser tirar a live de venda de vez, mude o estado no Supabase
+(Table Editor → `lives` → coluna `estado` → `encerrada`).
 
 ---
 
@@ -275,4 +279,5 @@ Quando terminar, mude a live para **Encerrada** e pare o OBS.
 | Paguei e o acesso não liberou | Webhook | Confira `MP_WEBHOOK_SECRET` e o endereço no painel do MP |
 | Live sem URL/chave do OBS | Foi criada antes da Cloudflare | Botão **Criar canal de transmissão** |
 | Player diz "proteção não configurada" | Falta o Passo 6 | Gere a chave em `/admin/configuracao` |
-| OBS conecta mas o vídeo não abre | Estado da live | Precisa estar **No ar** |
+| OBS conecta mas o vídeo não abre | A live está como rascunho | Mude para **Anunciada** no painel |
+| Painel diz "Fora do ar" com o OBS ligado | A Cloudflare leva alguns segundos | Espere ~15 s e recarregue |

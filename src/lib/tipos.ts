@@ -17,7 +17,12 @@ export type Live = {
   slug: string;
   titulo: string;
   descricao: string;
-  comeca_em: string | null;
+  /** "2026-09-18" — opcional: dá para anunciar sem saber a data. */
+  dia_inicio: string | null;
+  /** "2026-09-21" — só quando o evento passa de um dia. */
+  dia_fim: string | null;
+  /** "21:00:00" — opcional, quando o horário já está definido. */
+  hora: string | null;
   preco_centavos: number;
   estado: EstadoLive;
   criado_em: string;

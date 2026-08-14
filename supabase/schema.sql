@@ -71,12 +71,49 @@ create table if not exists public.lives (
   slug            text        not null unique,
   titulo          text        not null,
   descricao       text        not null default '',
-  comeca_em       timestamptz,
+  -- Quando acontece: os TRÊS campos são opcionais, de propósito.
+  --   nada preenchido      -> "Data a definir" (dá para vender assim)
+  --   só dia_inicio        -> "18 de setembro"
+  --   dia_inicio + dia_fim -> "18 a 21 de setembro" (evento de vários dias)
+  --   + hora               -> "..., a partir das 21h"
+  dia_inicio      date,
+  dia_fim         date,
+  hora            time,
   preco_centavos  integer     not null check (preco_centavos >= 0),
   estado          text        not null default 'rascunho'
                   check (estado in ('rascunho', 'anunciada', 'no_ar', 'encerrada')),
   criado_em       timestamptz not null default now()
 );
+
+-- Para quem já rodou a versão anterior deste arquivo.
+alter table public.lives add column if not exists dia_inicio date;
+alter table public.lives add column if not exists dia_fim    date;
+alter table public.lives add column if not exists hora       time;
+
+-- A versão antiga guardava data e hora juntas em `comeca_em`, o que obrigava
+-- a saber o horário exato. Isto passa o conteúdo para os campos novos e
+-- remove a coluna. Roda uma vez; depois disso não faz mais nada.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'lives'
+      and column_name = 'comeca_em'
+  ) then
+    update public.lives
+       set dia_inicio = coalesce(dia_inicio, (comeca_em at time zone 'America/Sao_Paulo')::date),
+           hora       = coalesce(hora,       (comeca_em at time zone 'America/Sao_Paulo')::time)
+     where comeca_em is not null;
+
+    alter table public.lives drop column comeca_em;
+  end if;
+end $$;
+
+-- Fim antes do começo é engano de digitação.
+alter table public.lives drop constraint if exists lives_dias_coerentes;
+alter table public.lives add constraint lives_dias_coerentes
+  check (dia_fim is null or dia_inicio is null or dia_fim >= dia_inicio);
 
 -- ------------------------------------------------------------
 -- LIVES_PRIVADO — a chave de transmissão do OBS mora aqui.

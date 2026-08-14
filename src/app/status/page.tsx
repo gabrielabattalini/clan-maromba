@@ -37,7 +37,7 @@ function CartaoServico({ resultado }: { resultado: ResultadoCheck }) {
         ? "Com problema"
         : "Aguardando chaves";
   return (
-    <div className="rounded-xl border border-borda bg-painel p-5">
+    <div className="cartao p-5">
       <div className="flex items-center gap-3">
         <span className={`h-3 w-3 shrink-0 rounded-full ${cor}`} aria-hidden />
         <h2 className="text-lg font-bold">{resultado.servico}</h2>
@@ -94,7 +94,7 @@ export default async function PaginaStatus() {
       <p className="text-xs font-medium uppercase tracking-widest text-texto-fraco">
         Clan Maromba · Configuração
       </p>
-      <h1 className="mt-1 text-3xl font-black">Status da configuração</h1>
+      <h1 className="display mt-2 text-4xl">Status da configuração</h1>
       <p className="mt-2 text-sm text-texto-fraco">
         Esta página testa, ao vivo, se as chaves dos serviços foram coladas
         corretamente. Recarregue depois de cada ajuste.
@@ -113,7 +113,7 @@ export default async function PaginaStatus() {
         ))}
       </div>
 
-      <h2 className="mt-10 text-xl font-bold">Variáveis de ambiente</h2>
+      <h2 className="display mt-12 text-2xl">Variáveis de ambiente</h2>
       <p className="mt-1 text-sm text-texto-fraco">
         Onde obter cada uma: veja o guia{" "}
         <code className="rounded bg-painel px-1 py-0.5 text-xs">
@@ -127,13 +127,13 @@ export default async function PaginaStatus() {
           return (
             <li
               key={v.nome}
-              className="flex items-start gap-3 rounded-lg border border-borda bg-painel px-4 py-3"
+              className="cartao flex items-start gap-3 px-4 py-3"
             >
               <span aria-hidden className="mt-0.5">
                 {ok ? "✅" : pendenteFase1 ? "⏳" : "❌"}
               </span>
               <div>
-                <code className="text-sm font-semibold">{v.nome}</code>
+                <code className="font-mono text-sm font-medium">{v.nome}</code>
                 <p className="text-xs text-texto-fraco">
                   {v.descricao}
                   {pendenteFase1 ? " — pendente da Fase 1." : ""}

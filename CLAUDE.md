@@ -101,6 +101,17 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
 - Token de reprodução só para sessão ativa + compra confirmada da live.
 - Rate limiting em login, compra e emissão de token.
 
+Auditoria completa em `docs/seguranca.md` (14/08/2026): o que foi testado, os
+6 problemas corrigidos e as 4 pendências que dependem do dono. Ao mexer em
+`src/lib/destino.ts`, no webhook do MP ou nos cabeçalhos de `next.config.ts`,
+rode `npm test` — essas partes têm teste justamente por serem trava.
+
+Duas chaves passaram pelo chat em 14/08/2026 e **precisam ser trocadas**: o
+token de API da Vercel e a *secret key* do Supabase. Enquanto não forem, quem
+tiver o histórico da conversa consegue desviar pagamento (trocando
+`MP_ACCESS_TOKEN`) e ler/alterar o banco inteiro. Isso está no topo de
+`docs/seguranca.md`.
+
 ## Comandos
 
 ```bash
@@ -147,3 +158,24 @@ acesso de graça, então não mexa nela sem rodar `npm test`.
 - `src/app/api/token/route.ts` — emite o token de 5 min do player.
 - `src/components/Player.tsx` — HLS.js com loader que troca o token a cada
   pedido, heartbeat de sessão e marca d'água que se recria se for removida.
+- `src/lib/ao-vivo.ts` — decide se uma live está no ar. **Não existe botão
+  "No ar" no painel**: quem responde é a Cloudflare (`estaTransmitindo`, com
+  cache de 10 s). O painel só alterna `rascunho` × `anunciada`. Decisão do dono
+  em 14/08/2026 — esquecer de clicar um botão no dia da live deixaria todos os
+  compradores na porta. `encerrada` continua existindo e é ajustado direto no
+  banco; `no_ar` gravado à mão no banco funciona como liberação manual de
+  emergência.
+
+Apagar live existe no painel (`apagarLive`), mas **recusa quando há compra
+`aprovada` ou `reembolsada`** — o registro de quem pagou tem de sobreviver à
+live. Para tirar de venda uma live já vendida, marcar `encerrada` no banco.
+Apagar também remove o live input na Cloudflare, para não deixar órfão.
+
+## Como uma live guarda a data
+
+`lives` tem três campos **todos opcionais**: `dia_inicio` (date), `dia_fim`
+(date) e `hora` (time). Isso cobre "ainda não sei quando", "só o dia", "vários
+dias" e "dias + horário" — o dono vende acesso antes de fechar a agenda.
+`quandoAcontece()` em `src/lib/formato.ts` monta a frase e é coberta por
+testes. Ela lê a data pelo texto, sem `new Date`, porque `new Date("2026-09-18")`
+é meia-noite em UTC e viraria dia 17 no Brasil.

@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { registrar } from "@/lib/auditoria";
-import { criarChaveDeAssinatura, criarLiveInput } from "@/lib/cloudflare";
+import {
+  apagarLiveInput,
+  criarChaveDeAssinatura,
+  criarLiveInput,
+} from "@/lib/cloudflare";
 import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
 import { gerarSlug } from "@/lib/formato";
@@ -33,10 +37,22 @@ export async function criarLive(
 
   const titulo = String(dados.get("titulo") ?? "").trim();
   const descricao = String(dados.get("descricao") ?? "").trim();
-  const dataHora = String(dados.get("comeca_em") ?? "").trim();
   const precoTexto = String(dados.get("preco") ?? "").trim();
 
+  // Os três campos de data são opcionais: dá para anunciar e vender uma live
+  // sem saber ainda quando ela vai ser.
+  const diaInicio = String(dados.get("dia_inicio") ?? "").trim() || null;
+  const diaFim = String(dados.get("dia_fim") ?? "").trim() || null;
+  const hora = String(dados.get("hora") ?? "").trim() || null;
+
   if (titulo.length < 3) return { erro: "Dê um título para a live." };
+
+  if (diaFim && !diaInicio) {
+    return { erro: "Preencha o primeiro dia antes de informar o último." };
+  }
+  if (diaInicio && diaFim && diaFim < diaInicio) {
+    return { erro: "O último dia não pode ser antes do primeiro." };
+  }
 
   const precoCentavos = centavosDeTexto(precoTexto);
   if (precoCentavos === null) return { erro: "Preço inválido. Exemplo: 19,90" };
@@ -62,7 +78,9 @@ export async function criarLive(
       slug,
       titulo,
       descricao,
-      comeca_em: dataHora ? new Date(dataHora).toISOString() : null,
+      dia_inicio: diaInicio,
+      dia_fim: diaFim,
+      hora,
       preco_centavos: precoCentavos,
       estado: "rascunho",
     })
@@ -106,7 +124,9 @@ export async function mudarEstadoDaLive(liveId: string, dados: FormData): Promis
   const conta = await exigirAdmin();
   const estado = String(dados.get("estado") ?? "") as EstadoLive;
 
-  const permitidos: EstadoLive[] = ["rascunho", "anunciada", "no_ar", "encerrada"];
+  // O painel só troca entre estes dois. "No ar" é detectado pela Cloudflare, e
+  // "encerrada" é ajustado direto no banco quando o dono quiser tirar de venda.
+  const permitidos: EstadoLive[] = ["rascunho", "anunciada"];
   if (!permitidos.includes(estado)) return;
 
   await clienteAdmin().from("lives").update({ estado }).eq("id", liveId);
@@ -191,6 +211,75 @@ export async function gerarChaveDeAssinatura(): Promise<ChaveAssinaturaGerada> {
       erro: "A Cloudflare recusou o pedido. Confira se o token tem permissão de Stream: Edit.",
     };
   }
+}
+
+/**
+ * Apaga uma live de vez.
+ *
+ * Recusa quando existe compra paga: o registro de quem pagou tem de
+ * sobreviver, mesmo que a live não aconteça mais. Para tirar de venda uma
+ * live já vendida, o caminho é marcar `encerrada` no banco.
+ */
+export async function apagarLive(liveId: string): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: live } = await supabase
+    .from("lives")
+    .select("titulo")
+    .eq("id", liveId)
+    .maybeSingle<{ titulo: string }>();
+
+  if (!live) return { erro: "Live não encontrada." };
+
+  const { count } = await supabase
+    .from("compras")
+    .select("id", { count: "exact", head: true })
+    .eq("live_id", liveId)
+    .in("status", ["aprovada", "reembolsada"]);
+
+  const pagas = count ?? 0;
+  if (pagas > 0) {
+    return {
+      erro:
+        `Esta live tem ${pagas} compra${pagas > 1 ? "s" : ""} paga${pagas > 1 ? "s" : ""} ` +
+        "e não pode ser apagada — o registro de quem pagou precisa ser guardado. " +
+        "Para tirar de venda, marque o estado como \"encerrada\" no Supabase.",
+    };
+  }
+
+  // Some também com o canal na Cloudflare, senão fica um input órfão lá.
+  const { data: privado } = await supabase
+    .from("lives_privado")
+    .select("cf_input_uid")
+    .eq("live_id", liveId)
+    .maybeSingle<{ cf_input_uid: string | null }>();
+
+  if (privado?.cf_input_uid && cloudflareConfigurado) {
+    try {
+      await apagarLiveInput(privado.cf_input_uid);
+    } catch (erro) {
+      console.error("[admin] falha ao apagar o canal na Cloudflare:", erro);
+      // Seguimos assim mesmo: o canal órfão não atrapalha o site.
+    }
+  }
+
+  const { error } = await supabase.from("lives").delete().eq("id", liveId);
+  if (error) {
+    console.error("[admin] falha ao apagar a live:", error.message);
+    return { erro: "Não consegui apagar a live. Tente de novo." };
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    acao: "admin_apagou_live",
+    ip: await ipDoVisitante(),
+    detalhes: { liveId, titulo: live.titulo },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  redirect("/admin");
 }
 
 export async function derrubarSessao(usuarioId: string): Promise<void> {

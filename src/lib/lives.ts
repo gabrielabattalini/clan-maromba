@@ -10,7 +10,7 @@ export async function listarLivesPublicas(): Promise<Live[]> {
     .from("lives")
     .select("*")
     .neq("estado", "rascunho")
-    .order("comeca_em", { ascending: true, nullsFirst: false })
+    .order("dia_inicio", { ascending: true, nullsFirst: false })
     .returns<Live[]>();
 
   if (error) {

@@ -1,55 +1,75 @@
 import Link from "next/link";
 
-import { dataPorExtenso, precoEmReais } from "@/lib/formato";
+import { precoEmReais, quandoAcontece } from "@/lib/formato";
 import type { Live } from "@/lib/tipos";
 
-export function SeloEstado({ estado }: { estado: Live["estado"] }) {
-  if (estado === "no_ar") {
+/**
+ * O selo diz o que interessa ao público: está no ar agora, já acabou, ou
+ * ainda vem. Quem responde se está no ar é a Cloudflare (`lib/ao-vivo.ts`),
+ * não um botão do painel.
+ */
+export function SeloEstado({ estado, noAr }: { estado: Live["estado"]; noAr: boolean }) {
+  if (noAr) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destaque/15 px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-destaque">
-        <span className="size-1.5 animate-pulse rounded-full bg-destaque" />
+      <span className="selo selo-vivo">
+        <span className="ponto-vivo" aria-hidden />
         Ao vivo agora
       </span>
     );
   }
 
-  if (estado === "encerrada") {
-    return (
-      <span className="inline-flex rounded-full bg-painel px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-texto-fraco">
-        Encerrada
-      </span>
-    );
-  }
-
   return (
-    <span className="inline-flex rounded-full bg-painel px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-texto-fraco">
-      Em breve
+    <span className="selo selo-neutro">
+      {estado === "encerrada" ? "Encerrada" : "Em breve"}
     </span>
   );
 }
 
-export function CartaoLive({ live, comprada }: { live: Live; comprada?: boolean }) {
+/**
+ * Cartão-ingresso: a live é um evento avulso que se compra, então a forma
+ * empresta a do ingresso — bloco de informação, picote, bloco de preço.
+ */
+export function CartaoLive({
+  live,
+  noAr,
+  comprada,
+}: {
+  live: Live;
+  noAr: boolean;
+  comprada?: boolean;
+}) {
   return (
     <Link
       href={`/live/${live.slug}`}
-      className="cartao flex flex-col gap-3 p-5 transition hover:border-destaque/60"
+      className="cartao group flex flex-col transition-colors hover:border-borda-forte"
     >
-      <div className="flex items-center justify-between gap-3">
-        <SeloEstado estado={live.estado} />
-        {comprada ? (
-          <span className="text-xs font-semibold text-ok">✓ Você tem acesso</span>
-        ) : (
-          <span className="text-sm font-bold">{precoEmReais(live.preco_centavos)}</span>
-        )}
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <SeloEstado estado={live.estado} noAr={noAr} />
+
+        <h3 className="display text-2xl text-balance transition-colors group-hover:text-destaque">
+          {live.titulo}
+        </h3>
+
+        {live.descricao ? (
+          <p className="line-clamp-2 text-sm leading-relaxed text-texto-fraco">
+            {live.descricao}
+          </p>
+        ) : null}
       </div>
 
-      <h2 className="text-lg font-bold leading-snug">{live.titulo}</h2>
+      <div className="picote mx-5" aria-hidden />
 
-      {live.descricao ? (
-        <p className="line-clamp-2 text-sm text-texto-fraco">{live.descricao}</p>
-      ) : null}
+      <div className="flex items-center justify-between gap-3 px-5 py-4">
+        <span className="numero text-xs text-texto-apagado">{quandoAcontece(live)}</span>
 
-      <p className="mt-auto text-xs text-texto-fraco">{dataPorExtenso(live.comeca_em)}</p>
+        {comprada ? (
+          <span className="etiqueta !text-ok">Você tem acesso</span>
+        ) : (
+          <span className="numero display text-xl leading-none">
+            {precoEmReais(live.preco_centavos)}
+          </span>
+        )}
+      </div>
     </Link>
   );
 }

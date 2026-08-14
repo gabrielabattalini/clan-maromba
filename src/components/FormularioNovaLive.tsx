@@ -42,28 +42,57 @@ export function FormularioNovaLive() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="rotulo" htmlFor="comeca_em">
-            Data e hora
-          </label>
-          <input className="campo" id="comeca_em" name="comeca_em" type="datetime-local" />
-        </div>
+      <fieldset className="rounded-lg border border-borda p-4">
+        <legend className="px-1.5 text-sm font-semibold">Quando acontece</legend>
+        <p className="mb-3 text-xs text-texto-fraco">
+          Tudo aqui é opcional. Deixe em branco e a live é anunciada como{" "}
+          <strong>&ldquo;Data a definir&rdquo;</strong> — dá para vender assim
+          mesmo e avisar a data depois.
+        </p>
 
-        <div>
-          <label className="rotulo" htmlFor="preco">
-            Preço em reais
-          </label>
-          <input
-            className="campo"
-            id="preco"
-            name="preco"
-            type="text"
-            inputMode="decimal"
-            placeholder="19,90"
-            required
-          />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="rotulo" htmlFor="dia_inicio">
+              Primeiro dia
+            </label>
+            <input className="campo" id="dia_inicio" name="dia_inicio" type="date" />
+          </div>
+
+          <div>
+            <label className="rotulo" htmlFor="dia_fim">
+              Último dia
+            </label>
+            <input className="campo" id="dia_fim" name="dia_fim" type="date" />
+            <p className="mt-1.5 text-xs text-texto-fraco">
+              Só se durar mais de um dia.
+            </p>
+          </div>
+
+          <div>
+            <label className="rotulo" htmlFor="hora">
+              Horário
+            </label>
+            <input className="campo" id="hora" name="hora" type="time" />
+            <p className="mt-1.5 text-xs text-texto-fraco">
+              Deixe vazio se ainda não sabe.
+            </p>
+          </div>
         </div>
+      </fieldset>
+
+      <div className="sm:max-w-48">
+        <label className="rotulo" htmlFor="preco">
+          Preço em reais
+        </label>
+        <input
+          className="campo"
+          id="preco"
+          name="preco"
+          type="text"
+          inputMode="decimal"
+          placeholder="19,90"
+          required
+        />
       </div>
 
       <button className="botao self-start" type="submit" disabled={enviando}>
