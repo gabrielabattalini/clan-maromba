@@ -1,167 +1,210 @@
-# Fase 0 — Conectar os serviços (guia passo a passo)
+# Fase 0 — Ligar os serviços (passo a passo)
 
-Este guia supõe que você **já tem conta** nos quatro serviços (Vercel, Supabase,
-Cloudflare e Mercado Pago) — vamos apenas ativar produtos e copiar chaves.
+Guia para quem **não é da área de TI**. São 5 passos, e a ordem foi escolhida
+para você ver resultado logo: primeiro o site fica no ar, depois ligamos um
+serviço de cada vez e vamos vendo as luzinhas ficarem verdes.
 
-**Resultado final desta fase:** o site no ar na Vercel e a página
-`https://SEU-SITE/status` **toda verde**. Esse é o teste — nada de verde,
-nada de Fase 1. 😉
+**Resultado final:** a página `https://SEU-SITE/status` **toda verde**.
+Enquanto não estiver, a Fase 1 não começa. 😉
 
-**Tempo estimado:** 30 a 45 minutos, sem pressa.
+**Tempo total:** 30 a 45 minutos, sem pressa. Dá para parar no meio e voltar
+depois — cada passo é independente.
 
-Você vai copiar 8 valores no total. Sugestão: abra um bloco de notas e vá
-colando cada valor com o nome da variável ao lado, para depois colar tudo de
-uma vez na Vercel (Passo 4).
-
-| Variável | De onde vem |
-|---|---|
-| `NEXT_PUBLIC_SITE_URL` | Vercel (Passo 4) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Passo 1) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase (Passo 1) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase (Passo 1) — **segredo** |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare (Passo 2) |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare (Passo 2) — **segredo** |
-| `CLOUDFLARE_STREAM_CUSTOMER_CODE` | Cloudflare (Passo 2) |
-| `MP_ACCESS_TOKEN` | Mercado Pago (Passo 3) — **segredo** |
-
-> ⚠️ Os três marcados como **segredo** valem como senha do seu negócio.
-> Nunca envie por WhatsApp/e-mail, nunca cole em site que não seja a Vercel.
+| Passo | O que faz | Custo |
+|---|---|---|
+| 1 | Vercel — coloca o site no ar | grátis |
+| 2 | Supabase — login e banco de dados | grátis |
+| 3 | Mercado Pago — pagamentos (modo teste) | grátis |
+| 4 | Cloudflare Stream — o vídeo | US$ 5 iniciais |
+| 5 | Conferir tudo verde | — |
 
 ---
 
-## Passo 1 — Supabase (login e banco de dados)
+## 📌 A receita que você vai repetir (guarde este quadro)
+
+Nos passos 2, 3 e 4 você vai copiar chaves e colar na Vercel. **Sempre do
+mesmo jeito:**
+
+1. Abra <https://vercel.com/dashboard> → clique no projeto **clan-maromba**
+2. Aba **Settings** (no topo) → **Environment Variables** (menu da esquerda)
+3. No campo **Key** cole o NOME (ex.: `NEXT_PUBLIC_SUPABASE_URL`)
+4. No campo **Value** cole o valor que você copiou
+5. Clique em **Save**
+6. Repita para as outras chaves do passo
+7. **Importante:** vá na aba **Deployments** → no primeiro da lista, clique nos
+   **três pontinhos (...)** → **Redeploy** → confirme.
+   *Sem esse Redeploy o site não enxerga as chaves novas.*
+
+> ⚠️ **Chaves são senhas do seu negócio.** Nunca mande por WhatsApp, e-mail ou
+> print. Cole só na Vercel. As que começam com `NEXT_PUBLIC_` são públicas
+> (podem aparecer no navegador); as outras são secretas.
+
+---
+
+## Passo 1 — Vercel: colocar o site no ar
+
+Aqui o site já vai para o ar, mesmo sem nenhuma chave. Ele sobe "vazio" de
+propósito — a página `/status` vai mostrar tudo amarelo, e é isso que a gente
+vai pintando de verde nos próximos passos.
+
+1. Entre em <https://vercel.com/new> (logado na sua conta).
+2. Na lista **Import Git Repository**, procure **`clan-maromba`** e clique em
+   **Import**.
+   - *Não apareceu na lista?* Clique no link de ajustar permissões do GitHub na
+     mesma página (algo como **Adjust GitHub App Permissions**), autorize o
+     repositório `clan-maromba` e volte.
+3. Na tela seguinte **não mexa em nada** — a Vercel reconhece o Next.js
+   sozinho. Só confira se o **Project Name** está `clan-maromba`.
+4. Clique em **Deploy** e espere 1 a 3 minutos (vai aparecer uma animação de
+   confete quando terminar).
+5. Anote o endereço que a Vercel te deu — algo como
+   `https://clan-maromba.vercel.app`. **Esse é o endereço do seu site.**
+6. Agora cadastre esse endereço como variável, usando **a receita do quadro
+   acima**:
+   - **Key:** `NEXT_PUBLIC_SITE_URL`
+   - **Value:** o endereço completo, com `https://` e **sem barra no final**
+
+✅ **Teste do passo 1:** abra o endereço do site. Deve aparecer uma página
+escura escrito **"Clan Maromba — em construção"**. Abra também
+`SEU-ENDEREÇO/status`: as três luzinhas estarão amarelas ("Aguardando
+chaves"). É exatamente o esperado.
+
+---
+
+## Passo 2 — Supabase: login e banco de dados
+
+É onde ficam as contas dos seus alunos/compradores e o registro de quem
+comprou cada live. Plano gratuito dá e sobra no começo.
 
 1. Entre em <https://supabase.com/dashboard> e clique em **New project**.
 2. Preencha:
    - **Name:** `clan-maromba`
    - **Database password:** clique em **Generate a password** e **guarde essa
-     senha** no seu gerenciador de senhas (não vamos usá-la agora, mas é sua).
-   - **Region:** `South America (São Paulo)` — mais perto do seu público.
-3. Clique em **Create new project** e aguarde 1–2 minutos.
-4. No menu lateral, vá em **Project Settings** (engrenagem) → **API Keys**
-   (em alguns painéis aparece como **Data API**):
-   - **Project URL** (algo como `https://abcdefgh.supabase.co`)
-     → copie para `NEXT_PUBLIC_SUPABASE_URL`
-   - A chave **pública** — aparece como **Publishable key**
-     (`sb_publishable_...`) ou, em projetos com chaves antigas, **anon public**
-     → copie para `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - A chave **secreta** — aparece como **Secret key** (`sb_secret_...`; talvez
-     seja preciso clicar em **Reveal**/**Create new**) ou, no formato antigo,
-     **service_role** → copie para `SUPABASE_SERVICE_ROLE_KEY` ⚠️ segredo
+     senha** no seu gerenciador de senhas. (Não vamos usá-la agora, mas se
+     perder não dá para recuperar.)
+   - **Region:** escolha **South America (São Paulo)** — mais perto do seu
+     público, site mais rápido.
+3. Clique em **Create new project** e espere 1 a 2 minutos.
+4. No menu da esquerda, clique na **engrenagem** (**Project Settings**) →
+   **API Keys** (em alguns painéis aparece como **Data API**).
+5. Copie três coisas e cadastre na Vercel (**receita do quadro**):
+
+   | O que procurar na tela | Cole na Vercel como |
+   |---|---|
+   | **Project URL** (`https://algo.supabase.co`) | `NEXT_PUBLIC_SUPABASE_URL` |
+   | **Publishable key** (`sb_publishable_...`) — em contas antigas: **anon public** | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+   | **Secret key** (`sb_secret_...`, pode precisar clicar em **Reveal**) — em contas antigas: **service_role** | `SUPABASE_SERVICE_ROLE_KEY` ⚠️ secreta |
+
+6. Faça o **Redeploy** (item 7 da receita).
+
+✅ **Teste do passo 2:** abra `SEU-ENDEREÇO/status` — a luz do **Supabase**
+deve estar **verde**, escrito "Conectado".
 
 ---
 
-## Passo 2 — Cloudflare Stream (o vídeo)
+## Passo 3 — Mercado Pago: pagamentos
 
-O Stream é o único serviço **pago** da nossa base: US$ 5 já compram 1.000
-minutos de armazenamento de gravações, e a entrega custa US$ 1 por 1.000
-minutos assistidos (enviar a live pelo OBS é grátis). Sem assinar, a live nem
-inicia.
+Vamos usar as **credenciais de teste**: compras simuladas, sem dinheiro de
+verdade. Só na Fase 3, no lançamento, trocamos pelas de verdade.
 
-**2a. Ativar o Stream**
-
-1. Entre em <https://dash.cloudflare.com> e, no menu lateral esquerdo, clique
-   em **Stream**.
-2. Siga o fluxo de assinatura que a página oferecer (cartão internacional;
-   comece com o plano mínimo de US$ 5/1.000 minutos de armazenamento).
-
-**2b. ID da conta**
-
-1. Com o painel aberto, pressione **Ctrl+K** (Windows) ou **Cmd+K** (Mac).
-2. Digite `Copy account ID` e clique no resultado — o ID já vai para a área de
-   transferência → cole em `CLOUDFLARE_ACCOUNT_ID`.
-   *(Alternativa: página **Workers & Pages**, caixa **Account details** à
-   direita, botão de copiar ao lado de "Account ID".)*
-
-**2c. Token de API** ⚠️ segredo
-
-1. Clique no **ícone de perfil** (canto superior direito) → **My Profile** →
-   aba **API Tokens** → **Create Token**.
-2. Desça até **Create Custom Token** → **Get started**.
-3. Preencha:
-   - **Token name:** `clan-maromba-stream`
-   - **Permissions:** na primeira caixa escolha **Account**, na segunda
-     **Stream**, na terceira **Edit**.
-   - **Account Resources:** **Include** → sua conta.
-4. **Continue to summary** → **Create Token**.
-5. Copie o token exibido (ele aparece **uma única vez**) → `CLOUDFLARE_API_TOKEN`.
-
-**2d. Código de cliente do player**
-
-1. Volte à página **Stream** do painel → **Live Inputs** → **Create live input**
-   (dê qualquer nome, ex.: `teste`; pode apagar depois).
-2. Ao abrir o input criado, procure o trecho **Embed** ou **HLS Manifest URL**:
-   nele aparece um endereço no formato
-   `customer-XXXXXXXX.cloudflarestream.com`.
-3. Copie **só a parte `XXXXXXXX`** (o que fica entre `customer-` e
-   `.cloudflarestream.com`) → `CLOUDFLARE_STREAM_CUSTOMER_CODE`.
-
----
-
-## Passo 3 — Mercado Pago (pagamentos)
-
-Vamos usar as **credenciais de teste** — compras simuladas, sem dinheiro de
-verdade — até a Fase 3.
-
-1. Entre em <https://www.mercadopago.com.br/developers> logado na sua conta.
+1. Entre em <https://www.mercadopago.com.br/developers> (logado na sua conta).
 2. Clique em **Suas integrações** (canto superior direito) → **Criar aplicação**.
 3. Preencha:
    - **Nome:** `Clan Maromba`
-   - Em "Qual produto você está integrando?" escolha **CheckoutPro**
+   - Em "Qual produto você está integrando?", escolha **CheckoutPro**
      (pagamentos online).
-   - Confirme a criação.
-4. No menu lateral esquerdo da aplicação: **Testes → Credenciais de teste**.
-5. Copie o **Access Token** (começa com `TEST-`) → `MP_ACCESS_TOKEN` ⚠️ segredo.
+   - Confirme.
+4. No menu da esquerda da aplicação: **Testes** → **Credenciais de teste**.
+5. Copie o **Access Token** (começa com `TEST-`) e cadastre na Vercel
+   (**receita do quadro**) como `MP_ACCESS_TOKEN` ⚠️ secreta.
+6. Faça o **Redeploy**.
 
-> A "assinatura secreta do webhook" (`MP_WEBHOOK_SECRET`) será gerada na
-> Fase 1, quando configurarmos as notificações de pagamento — por enquanto
-> pode deixar em branco.
+> A tal "assinatura secreta do webhook" (`MP_WEBHOOK_SECRET`) só será criada na
+> Fase 1, quando ligarmos o aviso automático de pagamento. Por enquanto ela
+> aparece com um ⏳ na página de status — está tudo certo.
 
----
-
-## Passo 4 — Vercel (colocar o site no ar)
-
-1. Entre em <https://vercel.com/new> (logado).
-2. Em **Import Git Repository**, localize **`clan-maromba`** e clique em
-   **Import**. *(Se o repositório não aparecer, clique no ajuste de permissões
-   do GitHub na própria página e libere o acesso da Vercel a ele.)*
-3. **Antes de clicar em Deploy**, configure:
-   - **Project Name:** `clan-maromba`
-   - **Framework Preset:** deve reconhecer **Next.js** sozinho.
-   - Abra a seção **Environment Variables** e cole as 7 variáveis que você já
-     coletou (nome no campo da esquerda, valor no da direita). Em
-     `NEXT_PUBLIC_SITE_URL` coloque `https://clan-maromba.vercel.app`.
-4. Clique em **Deploy** e aguarde o build terminar (1–3 minutos).
-
-*(Se o endereço final for diferente de `clan-maromba.vercel.app`, ajuste a
-variável `NEXT_PUBLIC_SITE_URL` em **Settings → Environment Variables** e
-faça **Redeploy** em Deployments → menu "..." → Redeploy.)*
+✅ **Teste do passo 3:** em `SEU-ENDEREÇO/status`, o **Mercado Pago** fica
+**verde** e escrito **"modo TESTE"** — que é o certo agora.
 
 ---
 
-## Passo 5 — Testar (o teste da Fase 0)
+## Passo 4 — Cloudflare Stream: o vídeo
 
-1. Abra `https://clan-maromba.vercel.app` → deve aparecer a página escura
-   **"Clan Maromba — em construção"**.
-2. Abra `https://clan-maromba.vercel.app/status`:
-   - **Supabase: Conectado** ✅
-   - **Cloudflare Stream: Conectado** ✅
-   - **Mercado Pago: Conectado** (e dizendo **modo TESTE**) ✅
-   - `MP_WEBHOOK_SECRET` aparece como ⏳ (normal — é da Fase 1).
+Este é o único serviço pago da base, e é o coração do produto: é ele que
+recebe a transmissão do seu OBS e entrega o vídeo protegido para quem comprou.
 
-**Se algo ficar vermelho**, a própria página diz o motivo mais provável.
-Os erros clássicos:
+**Quanto custa:** US$ 5 compram 1.000 minutos de armazenamento de gravações,
+e a entrega custa US$ 1 a cada 1.000 minutos assistidos (ex.: 100 pessoas × 2h
+≈ US$ 12 na live). Mandar a live do OBS para lá é **grátis**. Precisa de
+cartão internacional.
 
-| Sintoma | Causa provável | Correção |
+**4a. Assinar o Stream**
+
+1. Entre em <https://dash.cloudflare.com> e clique em **Stream** no menu da
+   esquerda.
+2. Siga o fluxo de assinatura da página (comece com o plano mínimo, US$ 5).
+   Sem assinar, a live nem inicia.
+
+**4b. Pegar o ID da conta**
+
+1. Com o painel aberto, aperte **Ctrl + K** (Windows) ou **Cmd + K** (Mac).
+2. Digite `Copy account ID` e clique no resultado — ele copia sozinho.
+3. Cadastre na Vercel como `CLOUDFLARE_ACCOUNT_ID`.
+
+**4c. Criar o token de acesso** ⚠️ secreta
+
+1. Clique no **ícone de perfil** (canto superior direito) → **My Profile** →
+   aba **API Tokens** → botão **Create Token**.
+2. Role a página até o final e clique em **Create Custom Token** →
+   **Get started**.
+3. Preencha:
+   - **Token name:** `clan-maromba-stream`
+   - **Permissions:** três caixinhas lado a lado — na 1ª escolha **Account**,
+     na 2ª **Stream**, na 3ª **Edit**.
+   - **Account Resources:** deixe **Include** → sua conta.
+4. **Continue to summary** → **Create Token**.
+5. Copie o token da tela (**ele só aparece uma vez!**) e cadastre na Vercel
+   como `CLOUDFLARE_API_TOKEN`.
+
+**4d. Pegar o código do player**
+
+1. Volte em **Stream** → **Live Inputs** → **Create live input** (dê o nome
+   `teste`; pode apagar depois).
+2. Abra o input criado e procure o bloco **Embed** ou **HLS Manifest URL**.
+   Vai aparecer um endereço assim:
+   `customer-a1b2c3d4e5.cloudflarestream.com`
+3. Copie **só o pedaço do meio** — no exemplo, `a1b2c3d4e5` (o que fica entre
+   `customer-` e `.cloudflarestream.com`).
+4. Cadastre na Vercel como `CLOUDFLARE_STREAM_CUSTOMER_CODE`.
+5. Faça o **Redeploy**.
+
+✅ **Teste do passo 4:** em `SEU-ENDEREÇO/status`, o **Cloudflare Stream** fica
+**verde**.
+
+---
+
+## Passo 5 — Conferir tudo verde
+
+Abra `SEU-ENDEREÇO/status`. O esperado:
+
+- **Supabase:** Conectado ✅
+- **Cloudflare Stream:** Conectado ✅
+- **Mercado Pago:** Conectado, modo TESTE ✅
+- Na lista de baixo, só o `MP_WEBHOOK_SECRET` com ⏳ (é da Fase 1)
+- No topo, a faixa verde: **"Tudo verde! A Fase 0 está completa"**
+
+### Se alguma luz ficar vermelha
+
+A própria página diz o motivo. Os casos comuns:
+
+| O que aparece | Provável causa | O que fazer |
 |---|---|---|
-| "Aguardando..." | Variável não foi colada na Vercel | Settings → Environment Variables → confira o **nome exato** |
-| Supabase erro 401/403 | Chave pública incompleta | Recopie a chave inteira (é longa) |
-| Cloudflare erro 401/403 | Token sem a permissão "Stream: Edit" | Refaça o Passo 2c |
-| Cloudflare outro erro | Assinatura do Stream não ativada | Refaça o Passo 2a |
-| Mercado Pago erro 401 | Access Token de produção ou incompleto | Use o de **teste** (`TEST-`), completo |
+| "Aguardando..." | A variável não foi salva, ou o nome saiu errado | Settings → Environment Variables → confira o **nome exato** (maiúsculas e underlines) |
+| Continua igual depois de salvar | Faltou o **Redeploy** | Deployments → "..." → Redeploy |
+| Supabase erro 401/403 | Chave incompleta (elas são bem longas) | Copie de novo, inteira |
+| Cloudflare erro 401/403 | Token sem a permissão certa | Refaça o **4c** com Account → Stream → **Edit** |
+| Cloudflare outro erro | Assinatura do Stream não ativada | Refaça o **4a** |
+| Mercado Pago erro 401 | Token de produção, ou incompleto | Use o de **teste** (começa com `TEST-`) |
 
-> Depois de corrigir qualquer variável na Vercel, é preciso fazer **Redeploy**
-> (Deployments → "..." → Redeploy) para o site enxergar o novo valor.
-
-Quando estiver tudo verde, me avise — começamos a **Fase 1**: cadastro,
-compra, player com token assinado, marca d'água e sessão única.
+Quando estiver tudo verde, me avise — começa a **Fase 1**: cadastro dos
+compradores, botão de compra, player com cadeado, marca d'água e sessão única.
