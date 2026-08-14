@@ -227,3 +227,26 @@ Uma live vende **vários ingressos** (tabela `ingressos`): passe completo e
   dos próprios ingressos. Fonte única: mexeu no ingresso, mudou a propaganda.
 
 O evento do dono já está pronto para colar em `docs/mister-olympia-2026.md`.
+
+## Bolão
+
+Palpite no top 5 de cada categoria, **de graça**, com ranking por pontos.
+`src/lib/bolao-pontos.ts` tem a conta (função pura, com teste) e
+`src/lib/bolao.ts` o acesso ao banco.
+
+- **Entrada é gratuita e o prêmio sai do bolso do dono.** Cobrar para
+  participar e pagar o vencedor com o bolo arrecadado é aposta: exige licença
+  federal e é proibido pelos termos do Mercado Pago — o risco real é a conta
+  que recebe os ingressos ser bloqueada. O dono pediu a versão paga em
+  14/08/2026 e aceitou a gratuita quando isso ficou claro.
+- **Pontuação**: 10 pelo campeão, 6 por outra posição exata, 2 por atleta
+  certo fora de posição. Acerto parcial existe porque cravar o top 5 é quase
+  impossível — sem ele, o mais provável é ninguém ganhar.
+- **Desempate**: pontos → acertos exatos → quem palpitou primeiro. Por isso
+  `criado_em` do palpite **não muda** quando a pessoa corrige a escolha.
+- **`fecha_em`** trava a categoria. É o que impede palpitar já sabendo o
+  resultado; o palpite pode ser corrigido quantas vezes quiser até lá.
+- O ranking mostra nome abreviado (`apelidoPublico`) — a página é pública e
+  ninguém se inscreveu para ter o nome inteiro exposto.
+- Atleta só sai da lista enquanto não houver palpite: os palpites apontam
+  para ele, e removê-lo apagaria a escolha de quem tinha palpitado.

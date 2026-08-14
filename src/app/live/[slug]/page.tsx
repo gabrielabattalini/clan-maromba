@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { SeloEstado } from "@/components/CartaoLive";
 import { ListaDeIngressos } from "@/components/ListaDeIngressos";
 import { liveEstaNoAr } from "@/lib/ao-vivo";
+import { listarCategorias } from "@/lib/bolao";
 import { mercadoPagoConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { janelaLegivel, quandoAcontece } from "@/lib/formato";
@@ -40,10 +41,11 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
   const ehAdmin = Boolean(conta?.perfil?.admin);
   if (live.estado === "rascunho" && !ehAdmin) notFound();
 
-  const [vitrine, noAr, podeAssistirAgora] = await Promise.all([
+  const [vitrine, noAr, podeAssistirAgora, categoriasDoBolao] = await Promise.all([
     montarVitrine(live.id, conta?.usuarioId),
     liveEstaNoAr(live),
     conta ? temAcessoAgora(conta.usuarioId, live.id) : Promise.resolve(false),
+    listarCategorias(live.id),
   ]);
 
   const meus = vitrine.filter((i) => i.jaTenho);
@@ -109,6 +111,28 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
                 Os horários seguem o fuso de Brasília. As finais atravessam a
                 madrugada — seu acesso não corta à meia-noite.
               </p>
+            </>
+          ) : null}
+
+          {categoriasDoBolao.length > 0 ? (
+            <>
+              <div className="regua my-8" />
+              <div className="cartao flex flex-wrap items-center justify-between gap-4 p-5">
+                <div className="min-w-52 flex-1">
+                  <p className="etiqueta !text-destaque-fraco">Bolão · de graça</p>
+                  <p className="mt-1.5 font-semibold">
+                    Diga quem fica no top 5 e dispute o prêmio
+                  </p>
+                  {live.bolao_premio ? (
+                    <p className="mt-1 text-sm text-texto-fraco">
+                      {live.bolao_premio}
+                    </p>
+                  ) : null}
+                </div>
+                <Link className="botao botao-secundario" href={`/bolao/${live.slug}`}>
+                  Palpitar
+                </Link>
+              </div>
             </>
           ) : null}
 
