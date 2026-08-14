@@ -7,6 +7,7 @@ import { registrar } from "@/lib/auditoria";
 import { buscarCategoria, categoriaAberta, listarAtletas } from "@/lib/bolao";
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
+import { comprouAlgumaCoisa } from "@/lib/ingressos";
 import { podeTentar } from "@/lib/limite-taxa";
 import { buscarLivePorId } from "@/lib/lives";
 import { ipDoVisitante } from "@/lib/requisicao";
@@ -43,6 +44,14 @@ export async function salvarPalpite(
     return { erro: "O site ainda está sendo configurado. Tente mais tarde." };
   }
   if (conta.perfil?.banido) return { erro: "Esta conta está bloqueada." };
+
+  // O bolão é benefício de quem comprou. Vale qualquer ingresso da live, e
+  // não só o que cobre este instante: quem comprou o domingo palpita na
+  // quinta, muito antes da janela dele abrir.
+  const ehAdmin = Boolean(conta.perfil?.admin);
+  if (!ehAdmin && !(await comprouAlgumaCoisa(conta.usuarioId, live.id))) {
+    return { erro: "O bolão é para quem tem ingresso desta live." };
+  }
 
   // A trava do horário é o que impede palpitar já sabendo o resultado.
   if (!categoriaAberta(categoria)) {

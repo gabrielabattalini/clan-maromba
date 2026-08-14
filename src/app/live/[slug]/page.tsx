@@ -119,9 +119,9 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
               <div className="regua my-8" />
               <div className="cartao flex flex-wrap items-center justify-between gap-4 p-5">
                 <div className="min-w-52 flex-1">
-                  <p className="etiqueta !text-destaque-fraco">Bolão · de graça</p>
+                  <p className="etiqueta !text-destaque-fraco">Bolão · para quem tem ingresso</p>
                   <p className="mt-1.5 font-semibold">
-                    Diga quem fica no top 5 e dispute o prêmio
+                    Comprou? Diga quem fica no top 5 e dispute o prêmio
                   </p>
                   {live.bolao_premio ? (
                     <p className="mt-1 text-sm text-texto-fraco">
