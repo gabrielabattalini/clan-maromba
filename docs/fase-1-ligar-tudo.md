@@ -63,15 +63,21 @@ manda 3 e-mails por hora — na estreia isso trava seus compradores.
 
 Faça o **Redeploy**.
 
-✅ **Teste:** abra `https://clan-maromba.vercel.app/cadastro` e crie sua conta
-com seu e-mail de verdade. Deve entrar direto e seu nome aparecer no topo da
-página.
+✅ **Teste:** abra `https://clan-maromba.vercel.app/status`. A luz do
+**Supabase** deve estar **verde**, escrito "Conectado", e as quatro primeiras
+variáveis com ✅.
+
+Abra também `/cadastro`: o formulário deve aparecer. **Ainda não crie a conta** —
+ela vem no passo 2, logo depois das tabelas existirem.
 
 ---
 
-## Passo 2 — Criar as tabelas e virar administrador
+## Passo 2 — Criar as tabelas, sua conta e virar administrador
 
-O Supabase nasce vazio. Vamos criar as tabelas (lives, compras, sessões, logs).
+O Supabase nasce vazio. Faça **nesta ordem** — as tabelas primeiro, a conta
+depois.
+
+**2a. Criar as tabelas**
 
 1. No Supabase → menu da esquerda → **SQL Editor** → **New query**
 2. Abra o arquivo **`supabase/schema.sql`** deste projeto no GitHub:
@@ -80,14 +86,26 @@ O Supabase nasce vazio. Vamos criar as tabelas (lives, compras, sessões, logs).
    direito do arquivo) e **cole tudo** no SQL Editor
 4. Clique em **Run** (ou Ctrl+Enter). Deve aparecer *"Success. No rows returned"*
 
-Agora **vire administrador**. Na mesma tela do SQL Editor, apague tudo e cole
-esta única linha, **trocando pelo seu e-mail** (o mesmo do cadastro):
+**2b. Criar a sua conta**
+
+Agora sim: abra `https://clan-maromba.vercel.app/cadastro` e crie a conta com o
+seu e-mail de verdade. Deve entrar direto e seu nome aparecer no canto superior
+direito.
+
+> Se aparecer *"Confira seu e-mail e clique no link de confirmação"*, é porque
+> o **Confirm email** do passo 1 ficou ligado. Volte lá, desligue e tente de novo.
+
+**2c. Virar administrador**
+
+Volte ao **SQL Editor**, apague tudo e cole esta única linha, **trocando pelo
+seu e-mail** (exatamente o mesmo do cadastro):
 
 ```sql
 update public.perfis set admin = true where email = 'seu-email@exemplo.com';
 ```
 
-Clique em **Run**. Deve aparecer *"Success"*.
+Clique em **Run**. Tem que aparecer **`Success. 1 row(s) affected`** —
+se disser **0 rows**, o e-mail está diferente do que você usou no cadastro.
 
 ✅ **Teste:** recarregue o site. No topo deve ter aparecido o botão
 **Painel**. Clique nele: você está em `/admin`. Crie uma live de mentira
