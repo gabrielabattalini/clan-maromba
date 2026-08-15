@@ -50,7 +50,7 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-6xl px-5">
       {/* ---------------- Herói ---------------- */}
       <section className={`surgir ${destaque ? "pt-12 pb-2" : "py-16 sm:py-24"}`}>
-        <p className="etiqueta">Transmissões ao vivo · acesso por evento</p>
+        <p className="etiqueta">Transmissões ao vivo</p>
 
         <h1
           className={`display mt-5 ${

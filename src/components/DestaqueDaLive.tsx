@@ -144,12 +144,6 @@ export function DestaqueDaLive({
               ) : null}
             </div>
           </div>
-
-          <ul className="mt-5 flex flex-col gap-2 text-xs leading-relaxed text-texto-apagado">
-            <li>Pagou pelo Pix ou cartão, o acesso entra na conta sozinho.</li>
-            <li>Assiste do celular, do computador ou da TV.</li>
-            <li>Uma conta, um aparelho por vez.</li>
-          </ul>
         </aside>
 
         {/* ---------------- Programação ---------------- */}
@@ -177,11 +171,6 @@ export function DestaqueDaLive({
                 </li>
               ))}
             </ul>
-
-            <p className="mt-4 text-xs leading-relaxed text-texto-apagado">
-              Os horários já estão convertidos para o Brasil. O ingresso vale a
-              transmissão inteira, incluindo a madrugada das finais.
-            </p>
           </div>
         ) : null}
       </div>

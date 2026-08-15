@@ -116,11 +116,6 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
                   </li>
                 ))}
               </ul>
-
-              <p className="mt-3 text-xs text-texto-apagado">
-                Os horários seguem o fuso de Brasília. Seu ingresso vale a
-                transmissão inteira, incluindo a madrugada das finais.
-              </p>
             </>
           ) : null}
 
