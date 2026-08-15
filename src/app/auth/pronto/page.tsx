@@ -59,8 +59,8 @@ export default async function PaginaPronto({ searchParams }: Props) {
             <Link className="botao" href={voltar === "/" ? "/" : voltar}>
               {voltar === "/" ? "Ver a agenda de lives" : "Continuar de onde parei"}
             </Link>
-            <Link className="botao botao-secundario" href="/minhas-lives">
-              Minhas lives
+            <Link className="botao botao-secundario" href="/loja">
+              Loja
             </Link>
           </div>
         </>

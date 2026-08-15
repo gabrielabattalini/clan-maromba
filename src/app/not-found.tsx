@@ -31,8 +31,8 @@ export default function NaoEncontrada() {
         <Link className="botao" href="/">
           Ver a agenda de lives
         </Link>
-        <Link className="botao botao-secundario" href="/minhas-lives">
-          Minhas lives
+        <Link className="botao botao-secundario" href="/loja">
+          Loja
         </Link>
       </div>
     </main>

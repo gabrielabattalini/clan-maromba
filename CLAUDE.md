@@ -298,6 +298,20 @@ quem tem ingresso**, não produto avulso.
 - Atleta só sai da lista enquanto não houver palpite: os palpites apontam
   para ele, e removê-lo apagaria a escolha de quem tinha palpitado.
 
+## Loja
+
+`/loja` é a vitrine única: ingresso da transmissão e entradas do bolão, por
+live. Substituiu "Minhas lives" — `/minhas-lives` ficou como redirecionamento
+permanente porque o endereço antigo saiu em e-mail de recuperação de senha.
+
+A página é **pública**: quem ainda não tem conta precisa ver o preço antes de
+se cadastrar, e por isso o link também saiu de dentro do bloco de logado no
+cabeçalho. Quem já comprou vê "Meus acessos" no topo.
+
+Os cartões do bolão não usam `ListaDeIngressos`: lá o `jaTenho` esconde o
+botão, e ticket de bolão é justamente o que se compra de novo. Eles mostram
+"Você tem N entradas" e o botão vira "Comprar outra".
+
 ## Chat ao vivo
 
 Ao lado do player, só para quem tem acesso agora. Chega pelo **Realtime do
