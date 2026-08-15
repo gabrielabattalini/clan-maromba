@@ -17,9 +17,9 @@ export function Rodape() {
 
         <Link
           className="text-xs text-texto-apagado transition-colors hover:text-texto-fraco"
-          href="/minhas-lives"
+          href="/loja"
         >
-          Minhas lives
+          Loja
         </Link>
       </div>
     </footer>

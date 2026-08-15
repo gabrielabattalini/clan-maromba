@@ -19,15 +19,17 @@ export async function Cabecalho() {
         </Link>
 
         <div className="flex items-center gap-3 text-sm">
+          {/* A loja fica visível para quem ainda não entrou: é onde o preço
+              está, e é o que faz a pessoa criar conta. */}
+          <Link
+            className="text-texto-fraco transition-colors hover:text-texto"
+            href="/loja"
+          >
+            Loja
+          </Link>
+
           {conta ? (
             <>
-              <Link
-                className="hidden text-texto-fraco transition-colors hover:text-texto sm:inline"
-                href="/minhas-lives"
-              >
-                Minhas lives
-              </Link>
-
               {conta.perfil?.admin ? (
                 <Link
                   className="botao botao-secundario !px-3 !py-1.5 !text-xs"

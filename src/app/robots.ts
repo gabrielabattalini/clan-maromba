@@ -18,7 +18,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin", "/admin/", "/assistir/", "/minhas-lives", "/status", "/api/"],
+      disallow: ["/admin", "/admin/", "/assistir/", "/status", "/api/"],
     },
     sitemap: `${enderecoDoSite()}/sitemap.xml`,
   };

@@ -104,5 +104,5 @@ export async function definirNovaSenha(
   await abrirSessaoUnica(conta.usuarioId, ip, navegador);
   await registrar({ usuarioId: conta.usuarioId, acao: "senha_trocada", ip, navegador });
 
-  redirect("/minhas-lives");
+  redirect("/loja");
 }

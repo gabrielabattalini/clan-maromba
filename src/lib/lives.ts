@@ -92,7 +92,7 @@ export async function temAcesso(usuarioId: string, liveId: string): Promise<bool
   return compra?.status === "aprovada";
 }
 
-/** Compras aprovadas do usuário, com a live junto — para "Minhas lives". */
+/** Compras do usuário, com a live junto — alimenta "Meus acessos" na loja. */
 export async function listarMinhasLives(
   usuarioId: string,
 ): Promise<{ compra: Compra; live: Live }[]> {
