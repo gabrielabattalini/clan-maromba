@@ -223,8 +223,11 @@ Uma live vende **vários ingressos** (tabela `ingressos`): passe completo e
 - Quem pode assistir agora é `temAcessoAgora()` (compra paga **e** janela
   aberta) — é o que `/api/token` pergunta. Compra antiga sem `ingresso_id`
   vale a live inteira.
-- A **programação** na home e na página da live é gerada a partir das janelas
-  dos próprios ingressos. Fonte única: mexeu no ingresso, mudou a propaganda.
+- A **programação** (`blocos_programacao`) é informação do evento e vive
+  separada dos ingressos. Era gerada a partir das janelas dos ingressos de
+  dia; quando o dono passou a vender um ingresso único, a tabela de horários
+  sumiria junto. Horário de evento é propaganda, não produto — e o schema faz
+  backfill dos blocos a partir dos ingressos de dia que já existiam.
 
 O evento do dono já está pronto para colar em `docs/mister-olympia-2026.md`.
 

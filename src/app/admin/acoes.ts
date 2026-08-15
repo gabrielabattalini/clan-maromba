@@ -868,3 +868,59 @@ export async function ajustarChat(
       : "Chat desligado.",
   };
 }
+
+// ------------------------------------------------------------
+// Programação
+// ------------------------------------------------------------
+
+/**
+ * Acrescenta um bloco à programação do evento.
+ *
+ * Programação é informação, não produto: existe separada dos ingressos para
+ * o dono poder vender um ingresso único e ainda assim anunciar os horários
+ * de cada dia na home.
+ */
+export async function criarBloco(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  await exigirAdmin();
+
+  const nome = String(dados.get("nome") ?? "").trim();
+  const descricao = String(dados.get("descricao") ?? "").trim();
+  const iniciaEm = instanteEmBrasilia(String(dados.get("inicia_em") ?? ""));
+  const terminaEm = instanteEmBrasilia(String(dados.get("termina_em") ?? ""));
+
+  if (nome.length < 2) return { erro: "Dê um nome ao bloco. Ex.: Dia 1 — Quinta" };
+  if (!iniciaEm) return { erro: "Diga quando começa." };
+  if (terminaEm && terminaEm <= iniciaEm) {
+    return { erro: "O fim precisa ser depois do começo." };
+  }
+
+  const { error } = await clienteAdmin().from("blocos_programacao").insert({
+    live_id: liveId,
+    nome,
+    descricao,
+    inicia_em: iniciaEm,
+    termina_em: terminaEm,
+  });
+
+  if (error) {
+    console.error("[programacao] falha ao criar bloco:", error.message);
+    return { erro: "Não consegui salvar o bloco." };
+  }
+
+  revalidatePath(`/admin/live/${liveId}`);
+  revalidatePath("/");
+  return { aviso: `"${nome}" entrou na programação.` };
+}
+
+export async function apagarBloco(liveId: string, blocoId: string): Promise<void> {
+  await exigirAdmin();
+
+  await clienteAdmin().from("blocos_programacao").delete().eq("id", blocoId);
+
+  revalidatePath(`/admin/live/${liveId}`);
+  revalidatePath("/");
+}

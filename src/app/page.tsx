@@ -6,7 +6,11 @@ import { marcarQuaisEstaoNoAr } from "@/lib/ao-vivo";
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { montarVitrine } from "@/lib/ingressos";
-import { listarLivesPublicas, listarMinhasLives } from "@/lib/lives";
+import {
+  listarLivesPublicas,
+  listarMinhasLives,
+  listarProgramacao,
+} from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +33,12 @@ export default async function Home() {
   // O evento principal toma a home: quem está no ar tem prioridade; senão, a
   // próxima da fila. O resto continua em cartões, abaixo.
   const destaque = noAr[0] ?? proximas[0] ?? null;
-  const vitrineDoDestaque = destaque
-    ? await montarVitrine(destaque.live.id, conta?.usuarioId)
-    : [];
+  const [vitrineDoDestaque, programacaoDoDestaque] = destaque
+    ? await Promise.all([
+        montarVitrine(destaque.live.id, conta?.usuarioId),
+        listarProgramacao(destaque.live.id),
+      ])
+    : [[], []];
 
   const fora = (lista: typeof comSituacao) =>
     lista.filter((i) => i.live.id !== destaque?.live.id);
@@ -85,6 +92,7 @@ export default async function Home() {
           noAr={destaque.noAr}
           comprada={compradas.has(destaque.live.id)}
           vitrine={vitrineDoDestaque}
+          programacao={programacaoDoDestaque}
         />
       ) : null}
 

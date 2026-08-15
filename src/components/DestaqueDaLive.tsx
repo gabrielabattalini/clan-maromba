@@ -3,13 +3,14 @@ import Link from "next/link";
 import { SeloEstado } from "@/components/CartaoLive";
 import { Contador } from "@/components/Contador";
 import { janelaLegivel, precoEmReais, quandoAcontece } from "@/lib/formato";
-import type { IngressoNaVitrine, Live } from "@/lib/tipos";
+import type { BlocoProgramacao, IngressoNaVitrine, Live } from "@/lib/tipos";
 
 type Props = {
   live: Live;
   noAr: boolean;
   comprada: boolean;
   vitrine: IngressoNaVitrine[];
+  programacao: BlocoProgramacao[];
 };
 
 /**
@@ -20,7 +21,13 @@ type Props = {
  * mudar um horário no painel, a propaganda muda junto. É o que impede a home
  * de anunciar uma coisa e o acesso valer outra.
  */
-export function DestaqueDaLive({ live, noAr, comprada, vitrine }: Props) {
+export function DestaqueDaLive({
+  live,
+  noAr,
+  comprada,
+  vitrine,
+  programacao,
+}: Props) {
   const disponiveis = vitrine.filter((i) => !i.esgotado || i.jaTenho);
 
   // O ingresso do bolão também não tem janela, mas não é passe de nada: ele
@@ -31,6 +38,8 @@ export function DestaqueDaLive({ live, noAr, comprada, vitrine }: Props) {
   const passe = daTransmissao.find(
     (i) => i.ingresso.inicia_em === null && i.ingresso.termina_em === null,
   );
+  // Ingressos de dia, quando existirem: é o que justifica o "prefere só um
+  // dia?". A programação abaixo é outra coisa — informação do evento.
   const porDia = daTransmissao.filter(
     (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
   );
@@ -144,34 +153,34 @@ export function DestaqueDaLive({ live, noAr, comprada, vitrine }: Props) {
         </aside>
 
         {/* ---------------- Programação ---------------- */}
-        {porDia.length > 0 ? (
+        {programacao.length > 0 ? (
           <div className="lg:col-start-1 lg:row-start-2">
             <h3 className="etiqueta">Programação · horário de Brasília</h3>
 
             <ul className="mt-4 flex flex-col">
-              {porDia.map(({ ingresso }) => (
+              {programacao.map((bloco) => (
                 <li
-                  key={ingresso.id}
+                  key={bloco.id}
                   className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-borda py-3 last:border-0"
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold">{ingresso.nome}</p>
-                    {ingresso.descricao ? (
+                    <p className="font-semibold">{bloco.nome}</p>
+                    {bloco.descricao ? (
                       <p className="mt-0.5 text-sm text-texto-fraco">
-                        {ingresso.descricao}
+                        {bloco.descricao}
                       </p>
                     ) : null}
                   </div>
                   <p className="numero shrink-0 text-sm text-texto-fraco">
-                    {janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
+                    {janelaLegivel(bloco.inicia_em, bloco.termina_em)}
                   </p>
                 </li>
               ))}
             </ul>
 
             <p className="mt-4 text-xs leading-relaxed text-texto-apagado">
-              Os horários já estão convertidos para o Brasil. As finais
-              atravessam a madrugada — o seu acesso não corta à meia-noite.
+              Os horários já estão convertidos para o Brasil. O ingresso vale a
+              transmissão inteira, incluindo a madrugada das finais.
             </p>
           </div>
         ) : null}
