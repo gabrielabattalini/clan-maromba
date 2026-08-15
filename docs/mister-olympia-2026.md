@@ -42,10 +42,13 @@ suas contas, sua live e seus logs continuam onde estão.
 2. Cole o bloco abaixo **inteiro**
 3. Clique em **Run**
 
-O passe está a **R$ 19,90**: sexta + sábado avulsos dão R$ 19,80, então o
-passe completo vira a escolha óbvia por dez centavos a mais. Os quatro dias
-continuam existindo porque a tabela **Programação** da home é montada a
-partir deles — apagar os dias apagaria a propaganda dos horários.
+É **um ingresso só**, de R$ 19,90, valendo os quatro dias. Os ingressos de dia
+saíram: com o passe a R$ 19,90, sexta + sábado avulsos custariam quase o
+mesmo e o passe ficaria sem graça.
+
+A tabela **Programação** continua na página — ela agora é informação do
+evento, guardada à parte, e não a lista do que está à venda. O mesmo comando
+recria os quatro blocos.
 
 O comando acha a live **pelo nome**: qualquer live com "Olympia" no título.
 Não depende do endereço, que muda sozinho quando você apaga e recria uma live.
@@ -61,8 +64,6 @@ declare
   v_live uuid;
   v_quantas integer;
 begin
-  -- Acha a live pelo NOME, não pelo endereço: apagar e recriar a live troca o
-  -- endereço (vira "...-2", "...-3") e o comando deixaria de achar.
   select count(*) into v_quantas
     from public.lives where titulo ilike '%olympia%';
 
@@ -79,9 +80,7 @@ begin
     raise exception 'Esta live já tem compra paga — não vou mexer nos ingressos.';
   end if;
 
-  -- Nome e datas da manchete. O "Full acess" virou nome de ingresso, então no
-  -- título só polui. O endereço (slug) não muda: links já enviados continuam
-  -- funcionando.
+  -- Nome e datas da manchete.
   update public.lives
      set titulo = 'Mister Olympia 2026',
          dia_inicio = '2026-09-24',
@@ -89,38 +88,38 @@ begin
          hora = null
    where id = v_live;
 
-  delete from public.ingressos where live_id = v_live;
+  -- ---------------- INGRESSO ÚNICO ----------------
+  -- Um só, valendo os quatro dias. Os ingressos de dia saíram: com o passe a
+  -- R$ 19,90, sexta + sábado avulsos custariam quase o mesmo, e o passe
+  -- ficaria sem graça. Ingresso de bolão (so_bolao) não é apagado aqui.
+  delete from public.ingressos where live_id = v_live and so_bolao = false;
 
   insert into public.ingressos
     (live_id, nome, descricao, preco_centavos, preco_cheio_centavos,
      promocao_ate, inicia_em, termina_em, limite, ordem)
   values
-    -- PASSE COMPLETO: promoção de lançamento de verdade. Quando o prazo
-    -- vencer, o site passa a cobrar R$ 39,90 sozinho.
-    (v_live, 'Passe completo',
+    (v_live, 'Acesso completo',
      'Os quatro dias, do começo ao fim. Inclui as finais de sábado.',
      1990, 2990,
-     '2026-09-17 23:59:00-03', null, null, 100, 0),
+     '2026-09-17 23:59:00-03', null, null, null, 0);
 
-    (v_live, 'Dia 1 — Quinta 24/09',
-     'Expo, bastidores e meet & greet.',
-     990, null, null,
-     '2026-09-24 13:00:00-03', '2026-09-25 00:00:00-03', null, 1),
+  -- ---------------- PROGRAMAÇÃO ----------------
+  -- Só informação: aparece na home e na página da live, e não muda o que a
+  -- pessoa pode assistir. Por isso dá para anunciar os quatro dias vendendo
+  -- um ingresso só.
+  delete from public.blocos_programacao where live_id = v_live;
 
-    (v_live, 'Dia 2 — Sexta 25/09',
-     'Prejudging e as finais das primeiras divisões.',
-     990, null, null,
-     '2026-09-25 12:00:00-03', '2026-09-26 04:00:00-03', null, 2),
-
-    (v_live, 'Dia 3 — Sábado 26/09 · FINAIS',
-     'O dia do título. Prejudging à tarde e a final do Mr. Olympia na madrugada.',
-     990, null, null,
-     '2026-09-26 12:00:00-03', '2026-09-27 05:00:00-03', null, 3),
-
-    (v_live, 'Dia 4 — Domingo 27/09',
-     'Encerramento, resultados e análise.',
-     990, null, null,
-     '2026-09-27 13:00:00-03', '2026-09-27 23:00:00-03', null, 4);
+  insert into public.blocos_programacao
+    (live_id, nome, descricao, inicia_em, termina_em, ordem)
+  values
+    (v_live, 'Dia 1 — Quinta 24/09', 'Expo, bastidores e meet & greet.',
+     '2026-09-24 13:00:00-03', '2026-09-25 00:00:00-03', 1),
+    (v_live, 'Dia 2 — Sexta 25/09', 'Prejudging e as finais das primeiras divisões.',
+     '2026-09-25 12:00:00-03', '2026-09-26 04:00:00-03', 2),
+    (v_live, 'Dia 3 — Sábado 26/09 · FINAIS', 'O dia do título. Prejudging à tarde e a final do Mr. Olympia na madrugada.',
+     '2026-09-26 12:00:00-03', '2026-09-27 05:00:00-03', 3),
+    (v_live, 'Dia 4 — Domingo 27/09', 'Encerramento, resultados e análise.',
+     '2026-09-27 13:00:00-03', '2026-09-27 23:00:00-03', 4);
 end $$;
 ```
 
@@ -135,15 +134,15 @@ preço cheio, e ele **passa a ser cobrado de verdade** quando a promoção vence
 **`'2026-09-17 23:59:00-03'`** — quando a promoção acaba. Mude para a data que
 quiser; o contador na página segue este valor.
 
-**`100`** — limite de passes completos. Quando esgotar, o botão trava sozinho e
-a página mostra "Esgotado". Deixe `null` para não ter limite.
+**`limite` em `null`** — sem limite de ingressos. Se quiser criar urgência de
+verdade, ponha um número: o site mostra "Restam N" e trava sozinho quando
+esgotar.
 
-**As janelas** (`inicia_em` / `termina_em`) — quando aquele ingresso dá acesso
-ao vídeo. Repare no Dia 3: termina **05:00 do dia 27**, não à meia-noite. As
-finais viram a madrugada, e cortar o acesso no clímax seria o pior erro
-possível.
+**As janelas do ingresso em `null`** — vale a transmissão inteira, os quatro
+dias.
 
-**Passe completo tem as duas janelas em `null`** — vale a transmissão inteira.
+**Os horários dos blocos** são só a propaganda. Repare no Dia 3: vai até
+**05:00 do dia 27**, porque as finais viram a madrugada no Brasil.
 
 ---
 
@@ -166,9 +165,8 @@ quebra.
 Abra a home do site. Você deve ver:
 
 - A manchete **Mister Olympia 2026**, com **24 a 27 de setembro** embaixo
-- O passe completo em destaque, com **R$ 29,90 riscado**, **R$ 19,90** grande,
-  o contador regressivo e "Restam 100 ingressos"
-- Os quatro dias a R$ 9,90 cada
+- O **Acesso completo** em destaque, com **R$ 29,90 riscado**, **R$ 19,90**
+  grande e o contador regressivo
 - A tabela **Programação**, em horário de Brasília, montada a partir das
   janelas dos próprios ingressos — uma fonte só, sem risco de a tabela dizer
   uma coisa e o acesso valer outra

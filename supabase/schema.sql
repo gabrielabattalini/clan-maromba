@@ -262,6 +262,37 @@ create table if not exists public.logs_auditoria (
 create index if not exists logs_recentes_idx on public.logs_auditoria (criado_em desc);
 
 -- ------------------------------------------------------------
+-- PROGRAMAÇÃO — os blocos do evento, para informar quem visita
+-- ------------------------------------------------------------
+-- Separada dos ingressos de propósito. Antes a tabela de horários da home
+-- era montada a partir das janelas dos ingressos de dia; quando o dono
+-- passou a vender um ingresso único, a programação sumiria junto. Horário de
+-- evento é informação, não produto.
+create table if not exists public.blocos_programacao (
+  id          uuid primary key default gen_random_uuid(),
+  live_id     uuid not null references public.lives (id) on delete cascade,
+  nome        text not null,
+  descricao   text not null default '',
+  inicia_em   timestamptz not null,
+  termina_em  timestamptz,
+  ordem       integer not null default 0,
+  criado_em   timestamptz not null default now()
+);
+
+create index if not exists blocos_da_live_idx
+  on public.blocos_programacao (live_id, inicia_em);
+
+-- Quem já tinha ingressos de dia ganha a programação a partir deles, uma vez
+-- só: assim ninguém precisa redigitar os horários que já estavam no ar.
+insert into public.blocos_programacao (live_id, nome, descricao, inicia_em, termina_em, ordem)
+select i.live_id, i.nome, i.descricao, i.inicia_em, i.termina_em, i.ordem
+  from public.ingressos i
+ where i.inicia_em is not null
+   and not exists (
+     select 1 from public.blocos_programacao b where b.live_id = i.live_id
+   );
+
+-- ------------------------------------------------------------
 -- BOLÃO — palpite grátis nas categorias, com ranking por pontos
 -- ------------------------------------------------------------
 -- Entrada é de graça e o prêmio sai do bolso do dono: assim é promoção,
@@ -466,6 +497,7 @@ alter table public.bolao_categorias enable row level security;
 alter table public.bolao_atletas    enable row level security;
 alter table public.bolao_palpites   enable row level security;
 alter table public.bolao_resultados enable row level security;
+alter table public.blocos_programacao enable row level security;
 alter table public.mensagens_chat   enable row level security;
 alter table public.chat_silenciados enable row level security;
 alter table public.sessoes_ativas  enable row level security;
@@ -491,6 +523,17 @@ create policy "ingressos de lives publicas" on public.ingressos
     exists (
       select 1 from public.lives l
        where l.id = ingressos.live_id
+         and l.estado <> 'rascunho'
+    )
+  );
+
+-- A programação é propaganda: qualquer visitante vê.
+drop policy if exists "programacao de lives publicas" on public.blocos_programacao;
+create policy "programacao de lives publicas" on public.blocos_programacao
+  for select using (
+    exists (
+      select 1 from public.lives l
+       where l.id = blocos_programacao.live_id
          and l.estado <> 'rascunho'
     )
   );

@@ -1,6 +1,6 @@
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { clienteAdmin } from "@/lib/supabase/admin";
-import type { Compra, Live, LivePrivado } from "@/lib/tipos";
+import type { BlocoProgramacao, Compra, Live, LivePrivado } from "@/lib/tipos";
 
 /** Lives visíveis ao público: tudo que já foi anunciado. */
 export async function listarLivesPublicas(): Promise<Live[]> {
@@ -108,4 +108,25 @@ export async function listarMinhasLives(
   return (data ?? [])
     .filter((linha) => linha.lives !== null)
     .map(({ lives, ...compra }) => ({ compra, live: lives as Live }));
+}
+
+/**
+ * Os blocos da programação de uma live.
+ *
+ * Vive separado dos ingressos porque horário de evento é informação: o dono
+ * pode vender um ingresso único e ainda assim anunciar os quatro dias.
+ */
+export async function listarProgramacao(
+  liveId: string,
+): Promise<BlocoProgramacao[]> {
+  if (!supabaseServidorConfigurado) return [];
+
+  const { data } = await clienteAdmin()
+    .from("blocos_programacao")
+    .select("*")
+    .eq("live_id", liveId)
+    .order("inicia_em", { ascending: true })
+    .returns<BlocoProgramacao[]>();
+
+  return data ?? [];
 }

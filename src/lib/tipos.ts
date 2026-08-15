@@ -86,6 +86,18 @@ export type IngressoNaVitrine = {
   jaTenho: boolean;
 };
 
+/** Um bloco da programação do evento. Informação, não produto. */
+export type BlocoProgramacao = {
+  id: string;
+  live_id: string;
+  nome: string;
+  descricao: string;
+  inicia_em: string;
+  termina_em: string | null;
+  ordem: number;
+  criado_em: string;
+};
+
 export type BolaoCategoria = {
   id: string;
   live_id: string;

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   ajustarFechamentoDoBolao,
   alternarBanimento,
+  apagarBloco,
   alternarIngresso,
   apagarCategoriaDoBolao,
   apagarLive,
@@ -15,6 +16,7 @@ import {
 import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
+import { FormularioBloco } from "@/components/FormularioBloco";
 import { FormularioChat } from "@/components/FormularioChat";
 import { FormularioIngresso } from "@/components/FormularioIngresso";
 import {
@@ -29,7 +31,11 @@ import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
 import { dataCurta, janelaLegivel, precoEmReais, quandoAcontece } from "@/lib/formato";
 import { montarVitrine } from "@/lib/ingressos";
-import { buscarDadosPrivados, buscarLivePorId } from "@/lib/lives";
+import {
+  buscarDadosPrivados,
+  buscarLivePorId,
+  listarProgramacao,
+} from "@/lib/lives";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { ROTULO_ESTADO, ROTULO_STATUS_COMPRA, type StatusCompra } from "@/lib/tipos";
 
@@ -59,6 +65,7 @@ export default async function PaginaLiveAdmin({ params }: Props) {
     : false;
 
   const vitrine = await montarVitrine(live.id);
+  const programacao = await listarProgramacao(live.id);
 
   const categoriasDoBolao = await listarCategorias(live.id);
   const idsDasCategorias = categoriasDoBolao.map((c) => c.id);
@@ -281,6 +288,52 @@ export default async function PaginaLiveAdmin({ params }: Props) {
         <div className="mt-6 border-t border-borda pt-6">
           <h3 className="mb-4 text-sm font-semibold">Novo ingresso</h3>
           <FormularioIngresso liveId={live.id} />
+        </div>
+      </section>
+
+      {/* ---------------- Programação ---------------- */}
+      <section className="cartao mt-6 p-6">
+        <h2 className="display text-xl">Programação</h2>
+        <p className="mt-1 text-sm leading-relaxed text-texto-fraco">
+          Os horários que aparecem na home e na página da live, em horário de
+          Brasília. É <strong>só informação</strong>: não muda o que a pessoa
+          pode assistir, e por isso você pode anunciar os quatro dias vendendo
+          um ingresso só.
+        </p>
+
+        {programacao.length > 0 ? (
+          <ul className="mt-5 flex flex-col gap-2">
+            {programacao.map((bloco) => (
+              <li
+                key={bloco.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borda px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{bloco.nome}</p>
+                  <p className="numero mt-0.5 text-xs text-texto-apagado">
+                    {janelaLegivel(bloco.inicia_em, bloco.termina_em)}
+                  </p>
+                </div>
+                <form action={apagarBloco.bind(null, live.id, bloco.id)}>
+                  <button
+                    className="botao botao-secundario !px-3 !py-1.5 !text-xs"
+                    type="submit"
+                  >
+                    Remover
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-texto-fraco">
+            Sem programação ainda — a tabela de horários não aparece no site.
+          </p>
+        )}
+
+        <div className="mt-6 border-t border-borda pt-6">
+          <h3 className="mb-4 text-sm font-semibold">Novo bloco</h3>
+          <FormularioBloco liveId={live.id} />
         </div>
       </section>
 

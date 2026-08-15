@@ -10,7 +10,7 @@ import { mercadoPagoConfigurado } from "@/lib/config";
 import { contaAtual } from "@/lib/conta";
 import { janelaLegivel, quandoAcontece } from "@/lib/formato";
 import { montarVitrine, temAcessoAgora } from "@/lib/ingressos";
-import { buscarLivePorSlug } from "@/lib/lives";
+import { buscarLivePorSlug, listarProgramacao } from "@/lib/lives";
 
 export const dynamic = "force-dynamic";
 
@@ -41,20 +41,19 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
   const ehAdmin = Boolean(conta?.perfil?.admin);
   if (live.estado === "rascunho" && !ehAdmin) notFound();
 
-  const [vitrine, noAr, podeAssistirAgora, categoriasDoBolao] = await Promise.all([
-    montarVitrine(live.id, conta?.usuarioId),
-    liveEstaNoAr(live),
-    conta ? temAcessoAgora(conta.usuarioId, live.id) : Promise.resolve(false),
-    listarCategorias(live.id),
-  ]);
+  const [vitrine, noAr, podeAssistirAgora, categoriasDoBolao, programacao] =
+    await Promise.all([
+      montarVitrine(live.id, conta?.usuarioId),
+      liveEstaNoAr(live),
+      conta ? temAcessoAgora(conta.usuarioId, live.id) : Promise.resolve(false),
+      listarCategorias(live.id),
+      listarProgramacao(live.id),
+    ]);
 
   // Os tickets do bolão não entram na vitrine da live: eles são vendidos na
   // página do bolão, ao lado da categoria a que pertencem. Misturados aqui,
   // seriam comprados por engano por quem só quer assistir.
   const meus = vitrine.filter((i) => i.jaTenho && !i.ingresso.so_bolao);
-  const comJanela = vitrine.filter(
-    (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
-  );
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-8 sm:py-12">
@@ -89,30 +88,38 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
             </>
           ) : null}
 
-          {/* A programação sai dos próprios ingressos: uma fonte só, sem
-              risco de a tabela dizer uma coisa e o acesso valer outra. */}
-          {comJanela.length > 0 ? (
+          {/* A programação é informação do evento, e não a lista do que está
+              à venda: o dono vende um ingresso só e continua anunciando os
+              quatro dias. */}
+          {programacao.length > 0 ? (
             <>
               <div className="regua my-8" />
               <h2 className="etiqueta">Programação · horário de Brasília</h2>
 
               <ul className="mt-4 flex flex-col">
-                {comJanela.map(({ ingresso }) => (
+                {programacao.map((bloco) => (
                   <li
-                    key={ingresso.id}
+                    key={bloco.id}
                     className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-borda py-3 last:border-0"
                   >
-                    <span className="font-semibold">{ingresso.nome}</span>
+                    <div className="min-w-0">
+                      <span className="font-semibold">{bloco.nome}</span>
+                      {bloco.descricao ? (
+                        <span className="block text-sm text-texto-fraco">
+                          {bloco.descricao}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="numero text-sm text-texto-fraco">
-                      {janelaLegivel(ingresso.inicia_em, ingresso.termina_em)}
+                      {janelaLegivel(bloco.inicia_em, bloco.termina_em)}
                     </span>
                   </li>
                 ))}
               </ul>
 
               <p className="mt-3 text-xs text-texto-apagado">
-                Os horários seguem o fuso de Brasília. As finais atravessam a
-                madrugada — seu acesso não corta à meia-noite.
+                Os horários seguem o fuso de Brasília. Seu ingresso vale a
+                transmissão inteira, incluindo a madrugada das finais.
               </p>
             </>
           ) : null}
