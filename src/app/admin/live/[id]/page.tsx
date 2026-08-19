@@ -18,6 +18,7 @@ import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
 import { FormularioBloco } from "@/components/FormularioBloco";
 import { FormularioChat } from "@/components/FormularioChat";
+import { FormularioCortesia } from "@/components/FormularioCortesia";
 import { FormularioIngresso } from "@/components/FormularioIngresso";
 import {
   categoriaAberta,
@@ -45,6 +46,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 type LinhaComprador = {
+  id: string;
   usuario_id: string;
   status: StatusCompra;
   valor_centavos: number;
@@ -84,7 +86,7 @@ export default async function PaginaLiveAdmin({ params }: Props) {
 
   const { data: compradores } = await clienteAdmin()
     .from("compras")
-    .select("usuario_id, status, valor_centavos, criado_em, perfis(nome, email, banido)")
+    .select("id, usuario_id, status, valor_centavos, criado_em, perfis(nome, email, banido)")
     .eq("live_id", live.id)
     .order("criado_em", { ascending: false })
     .returns<LinhaComprador[]>();
@@ -476,13 +478,30 @@ export default async function PaginaLiveAdmin({ params }: Props) {
           </p>
         </div>
 
+        {/* Dar acesso na mão: convidado, sócio, ganhador de sorteio. Fica
+            aqui em cima porque o resultado aparece na lista logo abaixo. */}
+        <details className="cartao mb-4 p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            Liberar acesso sem cobrar
+          </summary>
+          <div className="mt-4">
+            <FormularioCortesia
+              liveId={live.id}
+              ingressos={vitrine.map(({ ingresso }) => ({
+                id: ingresso.id,
+                nome: ingresso.nome,
+              }))}
+            />
+          </div>
+        </details>
+
         {lista.length === 0 ? (
           <p className="text-sm text-texto-fraco">Ninguém comprou ainda.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {lista.map((compra) => (
               <li
-                key={compra.usuario_id}
+                key={compra.id}
                 className="cartao flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="min-w-0">
@@ -496,7 +515,10 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                   </p>
                   <p className="truncate text-xs text-texto-fraco">
                     {compra.perfis?.email} · {ROTULO_STATUS_COMPRA[compra.status]} ·{" "}
-                    {dataCurta(compra.criado_em)}
+                    {compra.valor_centavos === 0
+                      ? "cortesia"
+                      : precoEmReais(compra.valor_centavos)}{" "}
+                    · {dataCurta(compra.criado_em)}
                   </p>
                 </div>
 
