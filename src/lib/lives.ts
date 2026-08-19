@@ -1,6 +1,12 @@
 import { supabaseServidorConfigurado } from "@/lib/config";
 import { clienteAdmin } from "@/lib/supabase/admin";
-import type { BlocoProgramacao, Compra, Live, LivePrivado } from "@/lib/tipos";
+import type {
+  BlocoProgramacao,
+  Compra,
+  Live,
+  LivePrivado,
+  MinhaCompra,
+} from "@/lib/tipos";
 
 /** Lives visíveis ao público: tudo que já foi anunciado. */
 export async function listarLivesPublicas(): Promise<Live[]> {
@@ -92,22 +98,38 @@ export async function temAcesso(usuarioId: string, liveId: string): Promise<bool
   return compra?.status === "aprovada";
 }
 
-/** Compras do usuário, com a live junto — alimenta "Meus acessos" na loja. */
+/**
+ * Compras do usuário, com a live e o ingresso junto — alimenta "Meus acessos".
+ *
+ * O nome do ingresso vem junto porque a mesma live pode aparecer várias vezes
+ * na lista (cada ticket de bolão é uma compra), e `so_bolao` porque quem
+ * comprou só o bolão NÃO tem acesso à transmissão: sem essa coluna a home
+ * marcaria a live como "você tem acesso" para quem só palpita.
+ */
 export async function listarMinhasLives(
   usuarioId: string,
-): Promise<{ compra: Compra; live: Live }[]> {
+): Promise<MinhaCompra[]> {
   if (!supabaseServidorConfigurado) return [];
 
   const { data } = await clienteAdmin()
     .from("compras")
-    .select("*, lives(*)")
+    .select("*, lives(*), ingressos(nome, so_bolao)")
     .eq("usuario_id", usuarioId)
     .order("criado_em", { ascending: false })
-    .returns<(Compra & { lives: Live | null })[]>();
+    .returns<
+      (Compra & {
+        lives: Live | null;
+        ingressos: { nome: string; so_bolao: boolean } | null;
+      })[]
+    >();
 
   return (data ?? [])
     .filter((linha) => linha.lives !== null)
-    .map(({ lives, ...compra }) => ({ compra, live: lives as Live }));
+    .map(({ lives, ingressos, ...compra }) => ({
+      compra,
+      live: lives as Live,
+      ingresso: ingressos,
+    }));
 }
 
 /**
