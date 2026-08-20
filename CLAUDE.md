@@ -93,7 +93,10 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
 ## Segurança — inegociável
 
 - Acesso liberado SOMENTE via webhook do MP com assinatura `x-signature`
-  validada (nunca pelo redirect de volta).
+  validada (nunca pelo redirect de volta). A única exceção é a **cortesia**
+  (`liberarCortesia`, em `src/app/admin/acoes.ts`): admin logado, valor
+  gravado como zero — para não virar faturamento — e linha de auditoria
+  dizendo quem liberou para quem.
 - RLS em todas as tabelas do Supabase.
 - Stream key só no painel admin.
 - Token de reprodução só para sessão ativa + compra confirmada da live.

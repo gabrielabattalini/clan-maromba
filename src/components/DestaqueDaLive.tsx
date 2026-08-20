@@ -1,14 +1,15 @@
 import Link from "next/link";
 
+import { AcessoGarantido } from "@/components/AcessoGarantido";
 import { SeloEstado } from "@/components/CartaoLive";
 import { Contador } from "@/components/Contador";
 import { janelaLegivel, precoEmReais, quandoAcontece } from "@/lib/formato";
+import { daAcessoAoVideo } from "@/lib/ingressos-regras";
 import type { BlocoProgramacao, IngressoNaVitrine, Live } from "@/lib/tipos";
 
 type Props = {
   live: Live;
   noAr: boolean;
-  comprada: boolean;
   vitrine: IngressoNaVitrine[];
   programacao: BlocoProgramacao[];
 };
@@ -21,13 +22,7 @@ type Props = {
  * mudar um horário no painel, a propaganda muda junto. É o que impede a home
  * de anunciar uma coisa e o acesso valer outra.
  */
-export function DestaqueDaLive({
-  live,
-  noAr,
-  comprada,
-  vitrine,
-  programacao,
-}: Props) {
+export function DestaqueDaLive({ live, noAr, vitrine, programacao }: Props) {
   const disponiveis = vitrine.filter((i) => !i.esgotado || i.jaTenho);
 
   // O ingresso do bolão também não tem janela, mas não é passe de nada: ele
@@ -43,6 +38,11 @@ export function DestaqueDaLive({
   const porDia = daTransmissao.filter(
     (i) => i.ingresso.inicia_em !== null || i.ingresso.termina_em !== null,
   );
+
+  // O que já é dele. `comprada` sozinho não serve: quem comprou só o ticket
+  // do bolão tem compra aprovada da live e nenhum acesso à transmissão.
+  const meus = daTransmissao.filter((i) => i.jaTenho);
+  const podeAssistirAgora = meus.some((i) => daAcessoAoVideo(i.ingresso));
 
   const paraCalcularPreco = disponiveis.filter((i) => !i.ingresso.so_bolao);
   const maisBarato =
@@ -61,7 +61,7 @@ export function DestaqueDaLive({
         <div className="lg:col-start-1 lg:row-start-1">
           <div className="flex flex-wrap items-center gap-3">
             <SeloEstado estado={live.estado} noAr={noAr} />
-            {comprada ? (
+            {meus.length > 0 ? (
               <span className="selo selo-neutro !text-ok">✓ Você já comprou</span>
             ) : null}
           </div>
@@ -81,69 +81,79 @@ export function DestaqueDaLive({
 
         {/* ---------------- A oferta ---------------- */}
         <aside className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-24">
-          <div className="cartao overflow-hidden">
-            {passe ? (
-              <>
-                <p className="bg-destaque/12 px-5 py-1.5 text-center text-[0.6875rem] font-bold uppercase tracking-widest text-destaque-fraco">
-                  Melhor escolha · todos os dias
-                </p>
-
-                <div className="p-6 text-center">
-                  <h3 className="display text-xl">{passe.ingresso.nome}</h3>
-
-                  {passe.emPromocao && passe.ingresso.preco_cheio_centavos !== null ? (
-                    <p className="numero mt-4 text-sm text-texto-apagado line-through">
-                      {precoEmReais(passe.ingresso.preco_cheio_centavos)}
-                    </p>
-                  ) : null}
-
-                  <p className="numero display mt-1 text-[3.25rem] leading-none">
-                    {precoEmReais(passe.precoAgora)}
+          {meus.length > 0 ? (
+            <AcessoGarantido
+              slugDaLive={live.slug}
+              itens={meus.map((i) => i.ingresso.nome)}
+              noAr={noAr}
+              podeAssistirAgora={podeAssistirAgora}
+              linkDaLive
+            />
+          ) : (
+            <div className="cartao overflow-hidden">
+              {passe ? (
+                <>
+                  <p className="bg-destaque/12 px-5 py-1.5 text-center text-[0.6875rem] font-bold uppercase tracking-widest text-destaque-fraco">
+                    Melhor escolha · todos os dias
                   </p>
 
-                  {passe.restam !== null && passe.restam > 0 ? (
-                    <p className="numero mt-3 text-xs font-semibold text-alerta">
-                      {passe.restam === 1
-                        ? "Resta 1 ingresso"
-                        : `Restam ${passe.restam} ingressos`}
-                    </p>
-                  ) : null}
-                  {passe.esgotado ? (
-                    <p className="mt-3 text-xs font-semibold text-texto-apagado">
-                      Esgotado
-                    </p>
-                  ) : null}
-                </div>
+                  <div className="p-6 text-center">
+                    <h3 className="display text-xl">{passe.ingresso.nome}</h3>
 
-                {passe.emPromocao && passe.ingresso.promocao_ate ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-borda bg-fundo-2 px-5 py-2.5 text-xs">
-                    <span className="text-texto-fraco">Este preço acaba em</span>
-                    <Contador ate={passe.ingresso.promocao_ate} />
+                    {passe.emPromocao && passe.ingresso.preco_cheio_centavos !== null ? (
+                      <p className="numero mt-4 text-sm text-texto-apagado line-through">
+                        {precoEmReais(passe.ingresso.preco_cheio_centavos)}
+                      </p>
+                    ) : null}
+
+                    <p className="numero display mt-1 text-[3.25rem] leading-none">
+                      {precoEmReais(passe.precoAgora)}
+                    </p>
+
+                    {passe.restam !== null && passe.restam > 0 ? (
+                      <p className="numero mt-3 text-xs font-semibold text-alerta">
+                        {passe.restam === 1
+                          ? "Resta 1 ingresso"
+                          : `Restam ${passe.restam} ingressos`}
+                      </p>
+                    ) : null}
+                    {passe.esgotado ? (
+                      <p className="mt-3 text-xs font-semibold text-texto-apagado">
+                        Esgotado
+                      </p>
+                    ) : null}
                   </div>
+
+                  {passe.emPromocao && passe.ingresso.promocao_ate ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-borda bg-fundo-2 px-5 py-2.5 text-xs">
+                      <span className="text-texto-fraco">Este preço acaba em</span>
+                      <Contador ate={passe.ingresso.promocao_ate} />
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="p-6 text-center">
+                  <p className="etiqueta">Acesso</p>
+                  <p className="numero display mt-2 text-[3.25rem] leading-none">
+                    {precoEmReais(maisBarato ?? live.preco_centavos)}
+                  </p>
+                </div>
+              )}
+
+              <div className="border-t border-borda p-5">
+                <Link className="botao w-full !py-3 !text-base" href={`/live/${live.slug}`}>
+                  Garantir meu acesso
+                </Link>
+
+                {porDia.length > 0 && maisBarato !== null ? (
+                  <p className="mt-3 text-center text-xs leading-relaxed text-texto-apagado">
+                    Prefere só um dia? Também dá, a partir de{" "}
+                    <strong className="text-texto-fraco">{precoEmReais(maisBarato)}</strong>.
+                  </p>
                 ) : null}
-              </>
-            ) : (
-              <div className="p-6 text-center">
-                <p className="etiqueta">Acesso</p>
-                <p className="numero display mt-2 text-[3.25rem] leading-none">
-                  {precoEmReais(maisBarato ?? live.preco_centavos)}
-                </p>
               </div>
-            )}
-
-            <div className="border-t border-borda p-5">
-              <Link className="botao w-full !py-3 !text-base" href={`/live/${live.slug}`}>
-                {comprada ? "Ver meu acesso" : "Garantir meu acesso"}
-              </Link>
-
-              {porDia.length > 0 && maisBarato !== null ? (
-                <p className="mt-3 text-center text-xs leading-relaxed text-texto-apagado">
-                  Prefere só um dia? Também dá, a partir de{" "}
-                  <strong className="text-texto-fraco">{precoEmReais(maisBarato)}</strong>.
-                </p>
-              ) : null}
             </div>
-          </div>
+          )}
         </aside>
 
         {/* ---------------- Programação ---------------- */}

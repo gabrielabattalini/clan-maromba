@@ -86,6 +86,14 @@ export type IngressoNaVitrine = {
   jaTenho: boolean;
 };
 
+/** Uma compra da pessoa, com a live e o ingresso a que ela se refere. */
+export type MinhaCompra = {
+  compra: Compra;
+  live: Live;
+  /** Nulo em compra antiga, de antes dos ingressos: valia a live inteira. */
+  ingresso: { nome: string; so_bolao: boolean } | null;
+};
+
 /** Um bloco da programação do evento. Informação, não produto. */
 export type BlocoProgramacao = {
   id: string;

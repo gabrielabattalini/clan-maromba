@@ -924,3 +924,105 @@ export async function apagarBloco(liveId: string, blocoId: string): Promise<void
   revalidatePath(`/admin/live/${liveId}`);
   revalidatePath("/");
 }
+
+// ------------------------------------------------------------
+// Cortesia
+// ------------------------------------------------------------
+
+/**
+ * Libera um ingresso na mão, sem pagamento.
+ *
+ * É a ÚNICA porta além do webhook do Mercado Pago que cria uma compra
+ * aprovada, e existe porque o dono precisa dar acesso a convidado, sócio e
+ * ganhador de sorteio. As travas que a tornam segura: só admin logado
+ * (`exigirAdmin`), valor gravado como zero — então a cortesia nunca vira
+ * faturamento — e uma linha no diário de auditoria dizendo quem liberou
+ * para quem.
+ */
+export async function liberarCortesia(
+  liveId: string,
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const email = String(dados.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const ingressoId = String(dados.get("ingresso") ?? "").trim();
+
+  if (!email.includes("@")) return { erro: "Escreva o e-mail da pessoa." };
+  if (!ingressoId) return { erro: "Escolha qual ingresso liberar." };
+
+  const { data: ingresso } = await supabase
+    .from("ingressos")
+    .select("id, nome, live_id, so_bolao")
+    .eq("id", ingressoId)
+    .eq("live_id", liveId)
+    .maybeSingle<{ id: string; nome: string; live_id: string; so_bolao: boolean }>();
+
+  if (!ingresso) return { erro: "Ingresso não encontrado nesta live." };
+
+  // O e-mail é comparado sem diferenciar maiúscula de minúscula: quem digita
+  // no painel não lembra como a pessoa escreveu ao se cadastrar.
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("id, nome, email")
+    .ilike("email", email)
+    .maybeSingle<{ id: string; nome: string; email: string }>();
+
+  if (!perfil) {
+    return {
+      erro:
+        "Não achei conta com esse e-mail. Peça para a pessoa criar a conta " +
+        "no site (e confirmar o e-mail) e tente de novo.",
+    };
+  }
+
+  // Ingresso de assistir não se repete. O do bolão sim: cada um é uma
+  // entrada, e liberar duas cortesias é dar dois palpites.
+  if (!ingresso.so_bolao) {
+    const { count } = await supabase
+      .from("compras")
+      .select("id", { count: "exact", head: true })
+      .eq("usuario_id", perfil.id)
+      .eq("ingresso_id", ingresso.id)
+      .eq("status", "aprovada");
+
+    if ((count ?? 0) > 0) {
+      return { aviso: `${perfil.nome || perfil.email} já tem “${ingresso.nome}”.` };
+    }
+  }
+
+  const { error } = await supabase.from("compras").insert({
+    usuario_id: perfil.id,
+    live_id: liveId,
+    ingresso_id: ingresso.id,
+    status: "aprovada",
+    valor_centavos: 0,
+  });
+
+  if (error) {
+    console.error("[cortesia] falha ao liberar:", error.message);
+    return { erro: "Não consegui liberar o acesso." };
+  }
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId,
+    acao: "admin_liberou_cortesia",
+    ip: await ipDoVisitante(),
+    detalhes: {
+      alvo: perfil.id,
+      email: perfil.email,
+      ingresso_id: ingresso.id,
+      ingresso: ingresso.nome,
+    },
+  });
+
+  revalidatePath(`/admin/live/${liveId}`);
+  return {
+    aviso: `Acesso liberado para ${perfil.nome || perfil.email} — “${ingresso.nome}”.`,
+  };
+}

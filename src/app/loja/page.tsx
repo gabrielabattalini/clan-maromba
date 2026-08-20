@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AcessoGarantido } from "@/components/AcessoGarantido";
 import { BotaoComprar } from "@/components/BotaoComprar";
 import { SeloEstado } from "@/components/CartaoLive";
 import { ListaDeIngressos } from "@/components/ListaDeIngressos";
@@ -12,7 +13,7 @@ import { contaAtual } from "@/lib/conta";
 import { precoEmReais, quandoAcontece } from "@/lib/formato";
 import { montarVitrine } from "@/lib/ingressos";
 import { listarLivesPublicas, listarMinhasLives } from "@/lib/lives";
-import { ROTULO_STATUS_COMPRA } from "@/lib/tipos";
+import type { Live } from "@/lib/tipos";
 
 export const metadata: Metadata = {
   title: "Loja",
@@ -43,8 +44,24 @@ export default async function Loja() {
     }),
   );
 
+  // "Meus acessos" é por LIVE, não por compra: quem levou três tickets de
+  // bolão tem três compras do mesmo evento, e três cartões iguais na tela
+  // não diriam nada a mais.
   const minhasCompras = conta ? await listarMinhasLives(conta.usuarioId) : [];
   const pagas = minhasCompras.filter((i) => i.compra.status === "aprovada");
+
+  const porLive = new Map<string, { live: Live; itens: string[] }>();
+  for (const { live, ingresso } of pagas) {
+    const grupo = porLive.get(live.id) ?? { live, itens: [] };
+    grupo.itens.push(ingresso?.nome ?? "Acesso à live");
+    porLive.set(live.id, grupo);
+  }
+
+  const meusAcessos = [...porLive.values()].map(({ live, itens }) => ({
+    live,
+    itens: contar(itens),
+    noAr: prateleiras.find((p) => p.live.id === live.id)?.noAr ?? false,
+  }));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:py-14">
@@ -54,31 +71,23 @@ export default async function Loja() {
       </p>
 
       {/* ---------------- O que eu já tenho ---------------- */}
-      {pagas.length > 0 ? (
+      {meusAcessos.length > 0 ? (
         <section className="mt-8">
-          <h2 className="etiqueta">Meus acessos</h2>
-          <ul className="mt-3 flex flex-col gap-2">
-            {pagas.map(({ compra, live }) => (
-              <li
-                key={compra.id}
-                className="cartao flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{live.titulo}</p>
-                  <p className="numero mt-0.5 text-xs text-texto-apagado">
-                    {ROTULO_STATUS_COMPRA[compra.status]} ·{" "}
-                    {precoEmReais(compra.valor_centavos)}
-                  </p>
-                </div>
-                <Link
-                  className="botao botao-secundario !px-3 !py-1.5 !text-xs"
-                  href={`/live/${live.slug}`}
-                >
-                  Ver
-                </Link>
-              </li>
+          <h2 className="etiqueta mb-3">Meus acessos</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {meusAcessos.map(({ live, itens, noAr }) => (
+              <div key={live.id}>
+                <p className="mb-2 truncate font-medium">{live.titulo}</p>
+                <AcessoGarantido
+                  slugDaLive={live.slug}
+                  itens={itens}
+                  noAr={noAr}
+                  podeAssistirAgora={noAr}
+                  linkDaLive
+                />
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 
@@ -224,4 +233,11 @@ function TicketDoBolao({
       </div>
     </div>
   );
+}
+
+/** ["Passe", "Bolão", "Bolão"] → ["Passe", "Bolão ×2"] */
+function contar(nomes: string[]): string[] {
+  const quantos = new Map<string, number>();
+  for (const nome of nomes) quantos.set(nome, (quantos.get(nome) ?? 0) + 1);
+  return [...quantos].map(([nome, n]) => (n > 1 ? `${nome} ×${n}` : nome));
 }

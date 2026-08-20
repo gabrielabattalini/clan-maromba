@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AcessoGarantido } from "@/components/AcessoGarantido";
 import { SeloEstado } from "@/components/CartaoLive";
 import { ListaDeIngressos } from "@/components/ListaDeIngressos";
 import { liveEstaNoAr } from "@/lib/ao-vivo";
@@ -54,6 +55,9 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
   // página do bolão, ao lado da categoria a que pertencem. Misturados aqui,
   // seriam comprados por engano por quem só quer assistir.
   const meus = vitrine.filter((i) => i.jaTenho && !i.ingresso.so_bolao);
+  // O que ainda dá para comprar. Quem já tem o passe não vê mais preço
+  // nenhum: a segunda compra do mesmo ingresso não existe.
+  const aVenda = vitrine.filter((i) => !i.jaTenho && !i.ingresso.so_bolao);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-8 sm:py-12">
@@ -180,31 +184,14 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
             </p>
           ) : null}
 
-          {podeAssistirAgora && noAr ? (
-            <div className="cartao mb-4 flex flex-col items-center gap-3 p-6 text-center">
-              <span className="etiqueta !text-ok">✓ Acesso liberado</span>
-              <p className="display text-2xl">A transmissão começou</p>
-              <Link
-                className="botao w-full !py-3 !text-base"
-                href={`/assistir/${live.slug}`}
-              >
-                Assistir agora
-              </Link>
-            </div>
-          ) : meus.length > 0 ? (
-            <div className="cartao mb-4 p-5">
-              <p className="etiqueta !text-ok">✓ Você já tem</p>
-              <ul className="mt-2 flex flex-col gap-1 text-sm">
-                {meus.map(({ ingresso }) => (
-                  <li key={ingresso.id} className="font-medium">
-                    {ingresso.nome}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs leading-relaxed text-texto-apagado">
-                O botão de assistir aparece sozinho quando a transmissão começar,
-                dentro da sua janela.
-              </p>
+          {meus.length > 0 ? (
+            <div className="mb-4">
+              <AcessoGarantido
+                slugDaLive={live.slug}
+                itens={meus.map(({ ingresso }) => ingresso.nome)}
+                noAr={noAr}
+                podeAssistirAgora={podeAssistirAgora}
+              />
             </div>
           ) : null}
 
@@ -215,13 +202,13 @@ export default async function PaginaDaLive({ params, searchParams }: Props) {
                 Esta live não está mais à venda.
               </p>
             </div>
-          ) : (
+          ) : aVenda.length === 0 && meus.length > 0 ? null : (
             <>
               <h2 className="etiqueta mb-3">
                 {meus.length > 0 ? "Comprar mais dias" : "Escolha seu acesso"}
               </h2>
               <ListaDeIngressos
-                itens={vitrine.filter((i) => !i.jaTenho && !i.ingresso.so_bolao)}
+                itens={aVenda}
                 slugDaLive={live.slug}
                 logado={Boolean(conta)}
                 pagamentoLigado={mercadoPagoConfigurado}

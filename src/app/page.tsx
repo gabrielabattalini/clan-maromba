@@ -18,9 +18,14 @@ export default async function Home() {
   const conta = await contaAtual();
   const lives = await listarLivesPublicas();
 
+  // "Você tem acesso" no cartão é sobre ASSISTIR. Quem comprou só o ticket
+  // do bolão tem compra aprovada da live e nenhum acesso à transmissão — por
+  // isso o `so_bolao` fica de fora da conta.
   const minhas = conta ? await listarMinhasLives(conta.usuarioId) : [];
   const compradas = new Set(
-    minhas.filter((i) => i.compra.status === "aprovada").map((i) => i.live.id),
+    minhas
+      .filter((i) => i.compra.status === "aprovada" && !i.ingresso?.so_bolao)
+      .map((i) => i.live.id),
   );
 
   // Quem diz se uma live está no ar é a Cloudflare, não um botão do painel.
@@ -90,7 +95,6 @@ export default async function Home() {
         <DestaqueDaLive
           live={destaque.live}
           noAr={destaque.noAr}
-          comprada={compradas.has(destaque.live.id)}
           vitrine={vitrineDoDestaque}
           programacao={programacaoDoDestaque}
         />
