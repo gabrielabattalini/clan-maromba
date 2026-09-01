@@ -10,6 +10,7 @@ import {
   MP_SEGREDO_WEBHOOK,
 } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
+import { donoDoToken } from "@/lib/mercadopago";
 
 export const metadata: Metadata = { title: "Configuração" };
 export const dynamic = "force-dynamic";
@@ -17,6 +18,15 @@ export const dynamic = "force-dynamic";
 export default async function PaginaConfiguracao() {
   await exigirAdmin();
   const site = enderecoDoSite();
+
+  // De qual conta são as credenciais que estão no ar AGORA.
+  //
+  // Trocar entre teste e produção era um ato às cegas: as duas telas são
+  // idênticas e o resultado só aparece quando um comprador fica sem acesso.
+  // Em 01/09/2026 foi assim — o token de teste pertencia a um usuário de
+  // teste do Mercado Pago, não à conta do dono, e nada na tela dizia isso.
+  const dono = mercadoPagoConfigurado ? await donoDoToken() : null;
+  const ehContaDeTeste = dono?.apelido.startsWith("TESTUSER") ?? false;
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10">
@@ -107,7 +117,36 @@ export default async function PaginaConfiguracao() {
             O <code>MP_ACCESS_TOKEN</code> ainda não foi cadastrado (Passo 3 da
             Fase 0).
           </p>
-        ) : null}
+        ) : dono ? (
+          <div
+            className={`aviso mt-4 ${ehContaDeTeste ? "aviso-atencao" : "aviso-ok"}`}
+          >
+            <strong>
+              {ehContaDeTeste ? "Modo de teste" : "Modo de produção"}
+            </strong>{" "}
+            — as credenciais no ar agora são da conta{" "}
+            <span className="numero">{dono.apelido || dono.id}</span>.
+            {ehContaDeTeste ? (
+              <span className="mt-1.5 block text-xs leading-relaxed">
+                Esta é uma conta de teste que o Mercado Pago criou, e não a
+                sua: o dinheiro não entra, e o aviso de pagamento chega
+                assinado com um segredo que não é o do seu painel — por isso
+                o acesso não libera sozinho. Use o botão{" "}
+                <strong>Conferir pagamento</strong>, na lista de compradores.
+              </span>
+            ) : (
+              <span className="mt-1.5 block text-xs leading-relaxed">
+                Venda valendo: o pagamento é de verdade e o aviso libera o
+                acesso sozinho.
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="aviso aviso-erro mt-4">
+            O <code>MP_ACCESS_TOKEN</code> está cadastrado, mas o Mercado Pago
+            não reconheceu. Confira se ele foi copiado inteiro.
+          </p>
+        )}
       </section>
 
       <p className="mt-8 text-center text-sm text-texto-fraco">
