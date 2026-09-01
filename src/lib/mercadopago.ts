@@ -44,6 +44,15 @@ export async function criarPreferencia(dados: DadosPreferencia): Promise<string>
       ],
       payer: { email: dados.emailComprador },
       external_reference: dados.compraId,
+      // NÃO mande `notification_url` aqui.
+      //
+      // Pedir o aviso dentro da cobrança faz o Mercado Pago mandar por um
+      // segundo caminho, e esse não é assinado com o segredo do painel. Em
+      // 01/09/2026 isso travou o teste de ponta a ponta: a simulação do
+      // painel devolvia 200 e a compra de verdade devolvia 401 na mesma
+      // publicação, com o mesmo segredo. Sem esta linha, o aviso vem só pelo
+      // webhook cadastrado no painel — o caminho assinado, o único em que
+      // dá para confiar.
       back_urls: {
         success: `${retorno}?pagamento=sucesso`,
         pending: `${retorno}?pagamento=pendente`,
@@ -52,7 +61,6 @@ export async function criarPreferencia(dados: DadosPreferencia): Promise<string>
       auto_return: "approved",
       // Boleto fora: demora dias para compensar e a live é hoje.
       payment_methods: { excluded_payment_types: [{ id: "ticket" }] },
-      notification_url: `${site}/api/webhooks/mercadopago`,
       statement_descriptor: "CLANMAROMBA",
     }),
     cache: "no-store",
