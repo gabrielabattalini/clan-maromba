@@ -141,8 +141,15 @@ export function enderecoDoManifesto(token: string): string {
 
 // A resposta é guardada por alguns segundos: com muita gente assistindo, esta
 // mesma pergunta seria repetida centenas de vezes por minuto sem necessidade.
+//
+// 30 segundos, e não 10, porque a API da Cloudflare tem limite próprio de
+// chamadas. O cache vive em cada instância do servidor, e num dia cheio a
+// Vercel sobe várias — dez instâncias perguntando a cada 10 segundos já
+// chegam perto do teto. O preço é o player demorar até 30 segundos para
+// perceber que o OBS entrou no ar; ninguém nota, porque a pessoa está
+// esperando a live começar de qualquer jeito.
 const cacheAoVivo = new Map<string, { valor: boolean; valeAte: number }>();
-const SEGUNDOS_DE_CACHE = 10;
+const SEGUNDOS_DE_CACHE = 30;
 
 /** Pergunta à Cloudflare se o OBS está transmitindo neste momento. */
 export async function estaTransmitindo(inputUid: string): Promise<boolean> {
