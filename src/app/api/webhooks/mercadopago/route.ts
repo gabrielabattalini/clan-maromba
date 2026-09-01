@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 import { registrar } from "@/lib/auditoria";
 import { MP_SEGREDO_WEBHOOK, supabaseServidorConfigurado } from "@/lib/config";
-import { assinaturaValida, buscarPagamento, statusDaCompra } from "@/lib/mercadopago";
+import {
+  assinaturaValida,
+  buscarPagamento,
+  donoDoToken,
+  statusDaCompra,
+} from "@/lib/mercadopago";
 import { ipDaRequisicao } from "@/lib/requisicao";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type { Compra } from "@/lib/tipos";
@@ -27,7 +32,14 @@ export async function POST(requisicao: Request) {
   const idNaQuery = url.searchParams.get("data.id");
   const idAlternativoNaQuery = url.searchParams.get("id");
 
-  let corpo: { type?: string; action?: string; data?: { id?: string | number } } = {};
+  let corpo: {
+    type?: string;
+    action?: string;
+    data?: { id?: string | number };
+    user_id?: number | string;
+    live_mode?: boolean;
+    api_version?: string;
+  } = {};
   try {
     corpo = (await requisicao.json()) as typeof corpo;
   } catch {
@@ -56,12 +68,21 @@ export async function POST(requisicao: Request) {
   if (!valida) {
     // O que veio na requisição fica registrado: é com isto que se descobre se
     // o problema é o segredo cadastrado ou o formato do aviso.
+    // De QUEM é este aviso? O `user_id` do corpo é a conta do Mercado Pago que
+    // gerou a notificação. Se ele não for o dono do nosso access token, o
+    // aviso vem de outra aplicação — e aí nenhuma chave nossa confere nunca,
+    // por mais que se acerte o formato do manifesto. É a diferença entre
+    // "configurei errado" e "estou olhando a aplicação errada".
+    const dono = await donoDoToken();
     console.error("[webhook-mp] aviso recusado", {
       query: Object.fromEntries(url.searchParams),
       temAssinatura: Boolean(requisicao.headers.get("x-signature")),
       temRequestId: Boolean(requisicao.headers.get("x-request-id")),
       tipo: corpo.type ?? corpo.action ?? null,
       idNoCorpo,
+      quemMandou: corpo.user_id ?? null,
+      ehAmbienteDeTeste: corpo.live_mode === false,
+      donoDoNossoToken: dono ? `${dono.id} (${dono.apelido})` : "não consegui saber",
     });
     await registrar({
       acao: "webhook_mp_assinatura_invalida",

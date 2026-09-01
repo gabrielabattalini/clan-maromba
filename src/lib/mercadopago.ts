@@ -81,6 +81,32 @@ export async function criarPreferencia(dados: DadosPreferencia): Promise<string>
   return corpo.init_point;
 }
 
+/**
+ * De quem é a conta do nosso access token?
+ *
+ * Serve para o diagnóstico do webhook: se o `user_id` que vem no aviso não
+ * for este id, o aviso é de OUTRA aplicação/conta do Mercado Pago — e aí
+ * nenhuma chave nossa vai conferir nunca, por mais que se acerte o formato.
+ */
+export async function donoDoToken(): Promise<{ id: number; apelido: string } | null> {
+  if (!MP_TOKEN) return null;
+
+  try {
+    const resposta = await fetch(`${API}/users/me`, {
+      headers: { Authorization: `Bearer ${MP_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!resposta.ok) return null;
+
+    const corpo = (await resposta.json()) as { id?: number; nickname?: string };
+    if (typeof corpo.id !== "number") return null;
+
+    return { id: corpo.id, apelido: corpo.nickname ?? "" };
+  } catch {
+    return null;
+  }
+}
+
 export type PagamentoMP = {
   id: string;
   status: string;
