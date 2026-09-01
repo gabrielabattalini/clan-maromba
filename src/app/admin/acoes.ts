@@ -1118,3 +1118,117 @@ export async function conferirPagamento(
     aviso: `O Mercado Pago diz "${pagamento.status}". Ainda não dá para liberar.`,
   };
 }
+
+
+/**
+ * Apaga uma tentativa de compra que nunca foi paga.
+ *
+ * Serve para limpar a lista: cobrança começada e abandonada, teste, compra
+ * que ficou pendente para sempre. Recusa compra PAGA de propósito — o
+ * registro de quem pagou tem de sobreviver, e para tirar o acesso de quem
+ * pagou existe `revogarAcesso`, que mantém a linha.
+ */
+export async function apagarTentativaDeCompra(
+  compraId: string,
+  _anterior: EstadoFormulario,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: compra } = await supabase
+    .from("compras")
+    .select("*")
+    .eq("id", compraId)
+    .maybeSingle<Compra>();
+
+  if (!compra) return { erro: "Compra não encontrada." };
+
+  if (compra.status === "aprovada") {
+    return {
+      erro: "Esta compra está paga. Para tirar o acesso use “Revogar acesso” — apagar sumiria com o registro de quem pagou.",
+    };
+  }
+
+  await supabase.from("compras").delete().eq("id", compra.id);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId: compra.live_id,
+    acao: "admin_apagou_tentativa_de_compra",
+    ip: await ipDoVisitante(),
+    detalhes: {
+      compraId,
+      comprador: compra.usuario_id,
+      status: compra.status,
+      valorCentavos: compra.valor_centavos,
+    },
+  });
+
+  revalidatePath(`/admin/live/${compra.live_id}`);
+  return { aviso: "Tentativa apagada." };
+}
+
+/**
+ * Tira o acesso de quem já tem.
+ *
+ * Duas situações, tratadas diferente de propósito:
+ *
+ * - **Cortesia** (valor zero): a linha é apagada. Não houve pagamento, então
+ *   não há registro financeiro a preservar — e quem liberou continua no
+ *   diário de auditoria.
+ * - **Compra paga**: a linha FICA, marcada como reembolsada. Some o acesso,
+ *   permanece a prova de que a pessoa pagou. Apagar aqui seria destruir o
+ *   registro que protege os dois lados numa discussão.
+ *
+ * Nos dois casos a sessão ativa cai junto: sem isso, quem estivesse com o
+ * player aberto continuaria assistindo até o próximo heartbeat.
+ *
+ * Devolver o dinheiro é passo à parte, no painel do Mercado Pago. Este botão
+ * não movimenta dinheiro nenhum.
+ */
+export async function revogarAcesso(
+  compraId: string,
+  _anterior: EstadoFormulario,
+): Promise<EstadoFormulario> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: compra } = await supabase
+    .from("compras")
+    .select("*")
+    .eq("id", compraId)
+    .maybeSingle<Compra>();
+
+  if (!compra) return { erro: "Compra não encontrada." };
+  if (compra.status !== "aprovada") {
+    return { erro: "Esta compra não está liberada — não há acesso a revogar." };
+  }
+
+  const eraCortesia = compra.valor_centavos === 0;
+
+  if (eraCortesia) {
+    await supabase.from("compras").delete().eq("id", compra.id);
+  } else {
+    await supabase
+      .from("compras")
+      .update({ status: "reembolsada", atualizado_em: new Date().toISOString() })
+      .eq("id", compra.id);
+  }
+
+  await supabase.from("sessoes_ativas").delete().eq("usuario_id", compra.usuario_id);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId: compra.live_id,
+    acao: eraCortesia ? "admin_revogou_cortesia" : "admin_revogou_compra_paga",
+    ip: await ipDoVisitante(),
+    detalhes: { compraId, comprador: compra.usuario_id, valorCentavos: compra.valor_centavos },
+  });
+
+  revalidatePath(`/admin/live/${compra.live_id}`);
+  return {
+    aviso: eraCortesia
+      ? "Cortesia removida."
+      : "Acesso revogado. A compra fica registrada como reembolsada — devolver o dinheiro é no painel do Mercado Pago.",
+  };
+}
