@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { SUPABASE_CHAVE_PUBLICA, SUPABASE_URL } from "@/lib/config";
 import { clienteNavegador } from "@/lib/supabase/navegador";
 
 /**
@@ -18,6 +19,34 @@ import { clienteNavegador } from "@/lib/supabase/navegador";
 export function BotaoGoogle({ voltar }: { voltar: string }) {
   const [indo, setIndo] = useState(false);
   const [erro, setErro] = useState("");
+  const [ligado, setLigado] = useState<boolean | null>(null);
+
+  // O botão só aparece se o Google estiver mesmo ligado no Supabase.
+  //
+  // Sem isto, quem clicasse antes da configuração terminar era jogado numa
+  // página branca com um JSON de erro — a pior tela possível para alguém que
+  // só queria comprar um ingresso. O Supabase publica quais provedores estão
+  // ativos, então a resposta vem dele, e não de um palpite nosso.
+  useEffect(() => {
+    let cancelado = false;
+
+    async function conferir() {
+      try {
+        const resposta = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+          headers: { apikey: SUPABASE_CHAVE_PUBLICA },
+        });
+        const corpo = (await resposta.json()) as { external?: { google?: boolean } };
+        if (!cancelado) setLigado(corpo.external?.google === true);
+      } catch {
+        if (!cancelado) setLigado(false);
+      }
+    }
+
+    void conferir();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   async function entrarComGoogle() {
     setIndo(true);
@@ -39,6 +68,10 @@ export function BotaoGoogle({ voltar }: { voltar: string }) {
       setErro("Não consegui abrir o login do Google. Tente pelo e-mail abaixo.");
     }
   }
+
+  // Enquanto não sabemos, não mostra nada: piscar um botão e escondê-lo
+  // depois é pior do que ele aparecer meio segundo mais tarde.
+  if (!ligado) return null;
 
   return (
     <div className="flex flex-col gap-3">
