@@ -97,6 +97,12 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
   (`liberarCortesia`, em `src/app/admin/acoes.ts`): admin logado, valor
   gravado como zero — para não virar faturamento — e linha de auditoria
   dizendo quem liberou para quem.
+  A segunda exceção é **"Conferir pagamento"** (`conferirPagamento`): o painel
+  pergunta ao Mercado Pago, com o nosso access token, se aquela compra foi
+  paga. Não precisa de assinatura porque não há terceiro na conversa — a
+  resposta vem do MP pela nossa credencial. Exige admin, confere o valor e
+  deixa auditoria. É a rede de segurança do dia da live: se o aviso não
+  chegar, o comprador que pagou não fica na porta.
 - RLS em todas as tabelas do Supabase.
 - Stream key só no painel admin.
 - Token de reprodução só para sessão ativa + compra confirmada da live.
@@ -107,11 +113,46 @@ Auditoria completa em `docs/seguranca.md` (14/08/2026): o que foi testado, os
 `src/lib/destino.ts`, no webhook do MP ou nos cabeçalhos de `next.config.ts`,
 rode `npm test` — essas partes têm teste justamente por serem trava.
 
-Duas chaves passaram pelo chat em 14/08/2026 e **precisam ser trocadas**: o
-token de API da Vercel e a *secret key* do Supabase. Enquanto não forem, quem
-tiver o histórico da conversa consegue desviar pagamento (trocando
-`MP_ACCESS_TOKEN`) e ler/alterar o banco inteiro. Isso está no topo de
-`docs/seguranca.md`.
+## Webhook do Mercado Pago — o que custou uma madrugada (01/09/2026)
+
+O teste de ponta a ponta travou com o pagamento aprovado e o acesso nunca
+liberado, e a caçada rendeu três coisas que não podem se perder:
+
+- **Não mande `notification_url` na preferência.** Pedir o aviso dentro da
+  cobrança abre um segundo caminho de notificação (formatos antigos,
+  `topic=payment` e `topic=merchant_order`) que **não** vem assinado com o
+  segredo do painel. O aviso tem de vir só pelo webhook cadastrado no painel
+  do MP — nas duas abas, Modo teste e Modo produção, com o evento
+  "Pagamentos" marcado.
+- **As credenciais de TESTE não são da conta do dono.** O `donoDoTokenMP`
+  registrado foi `3616411194 (TESTUSER3714588127755058814)`: o Access Token
+  de teste pertence a um usuário de teste que o MP cria junto. O pagamento é
+  processado por essa conta, e o aviso dela é assinado com um segredo que não
+  é o do painel do dono — por isso a **simulação do painel devolvia 200 e a
+  compra devolvia 401**, no mesmo código e com o mesmo segredo. Não há o que
+  consertar no código; em produção, com a conta do dono, os dois lados batem.
+- **Erro de assinatura não pode ser mudo.** Quando a validação falha,
+  `src/lib/mp-diagnostico.ts` testa as chaves plausíveis contra os formatos
+  plausíveis (hex e base64) e registra o RÓTULO da que bate — e a rota
+  registra `quemMandou` × `donoDoNossoToken`. Sem isso, chave errada, formato
+  errado e conta errada dão o mesmo 401 e a única saída é adivinhar. Foram
+  duas hipóteses erradas antes disso existir.
+
+`MP_WEBHOOK_SECRET` aceita **vários segredos separados por vírgula**: alternar
+entre teste e produção deixa de poder derrubar a liberação de acesso.
+
+**Três chaves passaram pelo chat e precisam ser trocadas** antes de vender
+ingresso de verdade:
+
+1. **Token de API da Vercel** (14/08/2026) — dá para trocar
+   `MP_ACCESS_TOKEN` e desviar todo o pagamento.
+2. ***Secret key* do Supabase** (14/08/2026) — dá para ler e alterar o banco
+   inteiro.
+3. **Assinatura secreta do webhook do MP** (01/09/2026, num print) — dá para
+   forjar um aviso de pagamento e liberar acesso sem pagar. Troca no botão ↻
+   ao lado do campo, no painel do MP, e recadastra na Vercel.
+
+O topo de `docs/seguranca.md` tem o passo a passo.
 
 ## Comandos
 
