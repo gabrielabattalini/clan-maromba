@@ -24,7 +24,8 @@ export async function POST(requisicao: Request) {
   const url = new URL(requisicao.url);
 
   // O id do pagamento vem na query (?data.id=) ou no corpo.
-  let idDado = url.searchParams.get("data.id") ?? url.searchParams.get("id");
+  const idNaQuery = url.searchParams.get("data.id");
+  const idAlternativoNaQuery = url.searchParams.get("id");
 
   let corpo: { type?: string; action?: string; data?: { id?: string | number } } = {};
   try {
@@ -33,7 +34,13 @@ export async function POST(requisicao: Request) {
     // Alguns avisos chegam sem corpo — seguimos com o que veio na query.
   }
 
-  if (!idDado && corpo.data?.id) idDado = String(corpo.data.id);
+  const idNoCorpo = corpo.data?.id != null ? String(corpo.data.id) : null;
+
+  // Para BUSCAR o pagamento, qualquer um serve, nesta ordem de confiança.
+  const idDado = idNaQuery ?? idAlternativoNaQuery ?? idNoCorpo;
+  // Para CONFERIR a assinatura, o Mercado Pago usou um deles — não dá para
+  // saber qual sem tentar (veja `assinaturaValida`).
+  const idsParaAssinatura = [idNaQuery, idAlternativoNaQuery, idNoCorpo];
 
   if (!MP_SEGREDO_WEBHOOK) {
     console.error("[webhook-mp] MP_WEBHOOK_SECRET não configurado — aviso ignorado.");
@@ -43,10 +50,19 @@ export async function POST(requisicao: Request) {
   const valida = assinaturaValida(
     requisicao.headers.get("x-signature"),
     requisicao.headers.get("x-request-id"),
-    idDado,
+    idsParaAssinatura,
   );
 
   if (!valida) {
+    // O que veio na requisição fica registrado: é com isto que se descobre se
+    // o problema é o segredo cadastrado ou o formato do aviso.
+    console.error("[webhook-mp] aviso recusado", {
+      query: Object.fromEntries(url.searchParams),
+      temAssinatura: Boolean(requisicao.headers.get("x-signature")),
+      temRequestId: Boolean(requisicao.headers.get("x-request-id")),
+      tipo: corpo.type ?? corpo.action ?? null,
+      idNoCorpo,
+    });
     await registrar({
       acao: "webhook_mp_assinatura_invalida",
       ip,

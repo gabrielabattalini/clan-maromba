@@ -84,3 +84,50 @@ test("recusa cabeçalho sem v1", () => {
 test("recusa v1 de tamanho diferente sem quebrar", () => {
   assert.equal(assinaturaValida(`ts=${TS},v1=abc`, ID_REQUISICAO, ID_DADO), false);
 });
+
+// ------------------------------------------------------------
+// O id do pagamento chega em lugares diferentes conforme o aviso
+// (?data.id= na URL, ?id= na URL, ou dentro do corpo). O Mercado Pago
+// assinou UM deles; conferir o errado dá 401 igualzinho a segredo errado.
+// ------------------------------------------------------------
+
+test("aceita quando o id assinado foi o da URL e o corpo trouxe outro", () => {
+  assert.equal(
+    assinaturaValida(cabecalho(MANIFESTO_COMPLETO), ID_REQUISICAO, [
+      ID_DADO,
+      "id-diferente-do-corpo",
+    ]),
+    true,
+  );
+});
+
+test("aceita quando o id assinado veio depois na lista", () => {
+  assert.equal(
+    assinaturaValida(cabecalho(MANIFESTO_COMPLETO), ID_REQUISICAO, [
+      null,
+      "outro",
+      ID_DADO,
+    ]),
+    true,
+  );
+});
+
+test("recusa quando nenhum dos candidatos é o id assinado", () => {
+  assert.equal(
+    assinaturaValida(cabecalho(MANIFESTO_COMPLETO), ID_REQUISICAO, ["111", "222"]),
+    false,
+  );
+});
+
+// A trava dentro da trava: assinatura sem id só vale quando id nenhum veio.
+// Se valesse sempre, uma assinatura capturada serviria para aprovar qualquer
+// outro pagamento — bastaria trocar o data.id.
+test("não aceita manifesto sem id quando algum id veio na requisição", () => {
+  const semId = `request-id:${ID_REQUISICAO};ts:${TS};`;
+  assert.equal(assinaturaValida(cabecalho(semId), ID_REQUISICAO, [ID_DADO]), false);
+});
+
+test("aceita manifesto sem id quando id nenhum veio", () => {
+  const semId = `request-id:${ID_REQUISICAO};ts:${TS};`;
+  assert.equal(assinaturaValida(cabecalho(semId), ID_REQUISICAO, [null, null]), true);
+});

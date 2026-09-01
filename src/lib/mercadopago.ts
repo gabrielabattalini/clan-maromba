@@ -114,10 +114,34 @@ export async function buscarPagamento(idPagamento: string): Promise<PagamentoMP 
  * poderia chamar nosso endereço fingindo um pagamento aprovado e ganhar
  * acesso de graça.
  */
+/** Compara um manifesto com o v1 que veio no cabeçalho, sem vazar tempo. */
+function confere(manifesto: string, v1: string): boolean {
+  const esperado = createHmac("sha256", MP_SEGREDO_WEBHOOK).update(manifesto).digest("hex");
+
+  const a = Buffer.from(esperado, "utf8");
+  const b = Buffer.from(v1, "utf8");
+  if (a.length !== b.length) return false;
+
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * A assinatura do aviso do Mercado Pago é de verdade?
+ *
+ * `idDado` aceita uma lista porque o id do pagamento chega em lugares
+ * diferentes conforme o aviso: `?data.id=` na URL, `?id=` na URL, ou dentro
+ * do corpo. O manifesto que o Mercado Pago assinou usa UM deles, e assinar o
+ * errado dá exatamente o mesmo resultado de segredo errado — 401 sem pista.
+ * Testamos os candidatos que chegaram; todos exigem o segredo, então
+ * nenhuma tentativa a mais afrouxa a trava.
+ *
+ * O que NÃO fazemos é aceitar manifesto sem id nenhum quando algum id veio:
+ * seria abrir mão de amarrar a assinatura ao pagamento.
+ */
 export function assinaturaValida(
   cabecalhoAssinatura: string | null,
   idRequisicao: string | null,
-  idDado: string | null,
+  idDado: string | null | (string | null)[],
 ): boolean {
   if (!MP_SEGREDO_WEBHOOK || !cabecalhoAssinatura) return false;
 
@@ -132,19 +156,38 @@ export function assinaturaValida(
 
   if (!ts || !v1) return false;
 
-  // O manifesto omite por completo os pedaços que não vieram na requisição.
-  let manifesto = "";
-  if (idDado) manifesto += `id:${idDado.toLowerCase()};`;
-  if (idRequisicao) manifesto += `request-id:${idRequisicao};`;
-  manifesto += `ts:${ts};`;
+  const candidatos: (string | null)[] = [];
+  for (const id of Array.isArray(idDado) ? idDado : [idDado]) {
+    const limpo = id?.trim() || null;
+    if (limpo && !candidatos.includes(limpo)) candidatos.push(limpo);
+  }
+  // Nenhum id veio: o manifesto do Mercado Pago também não tem o segmento.
+  if (candidatos.length === 0) candidatos.push(null);
 
-  const esperado = createHmac("sha256", MP_SEGREDO_WEBHOOK).update(manifesto).digest("hex");
+  const tentados: string[] = [];
+  for (const id of candidatos) {
+    // O manifesto omite por completo os pedaços que não vieram na requisição.
+    let manifesto = "";
+    if (id) manifesto += `id:${id.toLowerCase()};`;
+    if (idRequisicao) manifesto += `request-id:${idRequisicao};`;
+    manifesto += `ts:${ts};`;
 
-  const a = Buffer.from(esperado, "utf8");
-  const b = Buffer.from(v1, "utf8");
-  if (a.length !== b.length) return false;
+    if (confere(manifesto, v1)) return true;
+    tentados.push(manifesto);
+  }
 
-  return timingSafeEqual(a, b);
+  // Sem isto, um segredo errado e um id errado dão o mesmo 401 mudo, e a
+  // única saída é adivinhar. Nada aqui é segredo: o manifesto é público e do
+  // segredo sai só o tamanho, que é o que denuncia um "colar" pela metade.
+  if (process.env.NODE_ENV === "production") {
+    console.error("[webhook-mp] assinatura não confere", {
+      manifestosTentados: tentados,
+      v1Recebido: v1.slice(0, 12),
+      tamanhoDoSegredo: MP_SEGREDO_WEBHOOK.length,
+    });
+  }
+
+  return false;
 }
 
 /** Traduz o status do Mercado Pago para o status da nossa tabela. */
