@@ -72,7 +72,11 @@ export async function POST(requisicao: Request) {
     return NextResponse.json({ erro: "assinatura inválida" }, { status: 401 });
   }
 
-  const tipo = corpo.type ?? url.searchParams.get("type");
+  // `type` é o webhook novo; `topic` é o IPN antigo. O Mercado Pago manda os
+  // dois para o mesmo endereço, e o de merchant_order traz um id que NÃO é de
+  // pagamento — buscá-lo dá erro à toa.
+  const tipo =
+    corpo.type ?? url.searchParams.get("type") ?? url.searchParams.get("topic");
   if (tipo && tipo !== "payment") {
     return NextResponse.json({ recebido: true }, { status: 200 });
   }

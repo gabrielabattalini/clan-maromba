@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { MP_SEGREDO_WEBHOOK, MP_TOKEN, enderecoDoSite } from "@/lib/config";
+import { MP_SEGREDOS_WEBHOOK, MP_TOKEN, enderecoDoSite } from "@/lib/config";
 
 const API = "https://api.mercadopago.com";
 
@@ -115,8 +115,8 @@ export async function buscarPagamento(idPagamento: string): Promise<PagamentoMP 
  * acesso de graça.
  */
 /** Compara um manifesto com o v1 que veio no cabeçalho, sem vazar tempo. */
-function confere(manifesto: string, v1: string): boolean {
-  const esperado = createHmac("sha256", MP_SEGREDO_WEBHOOK).update(manifesto).digest("hex");
+function confere(manifesto: string, v1: string, segredo: string): boolean {
+  const esperado = createHmac("sha256", segredo).update(manifesto).digest("hex");
 
   const a = Buffer.from(esperado, "utf8");
   const b = Buffer.from(v1, "utf8");
@@ -143,7 +143,7 @@ export function assinaturaValida(
   idRequisicao: string | null,
   idDado: string | null | (string | null)[],
 ): boolean {
-  if (!MP_SEGREDO_WEBHOOK || !cabecalhoAssinatura) return false;
+  if (MP_SEGREDOS_WEBHOOK.length === 0 || !cabecalhoAssinatura) return false;
 
   let ts = "";
   let v1 = "";
@@ -172,7 +172,9 @@ export function assinaturaValida(
     if (idRequisicao) manifesto += `request-id:${idRequisicao};`;
     manifesto += `ts:${ts};`;
 
-    if (confere(manifesto, v1)) return true;
+    for (const segredo of MP_SEGREDOS_WEBHOOK) {
+      if (confere(manifesto, v1, segredo)) return true;
+    }
     tentados.push(manifesto);
   }
 
@@ -183,7 +185,7 @@ export function assinaturaValida(
     console.error("[webhook-mp] assinatura não confere", {
       manifestosTentados: tentados,
       v1Recebido: v1.slice(0, 12),
-      tamanhoDoSegredo: MP_SEGREDO_WEBHOOK.length,
+      segredosCadastrados: MP_SEGREDOS_WEBHOOK.map((s) => s.length),
     });
   }
 
