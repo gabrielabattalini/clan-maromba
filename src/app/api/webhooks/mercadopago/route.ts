@@ -8,6 +8,7 @@ import {
   donoDoToken,
   statusDaCompra,
 } from "@/lib/mercadopago";
+import { podeTentar } from "@/lib/limite-taxa";
 import { ipDaRequisicao } from "@/lib/requisicao";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type { Compra } from "@/lib/tipos";
@@ -17,9 +18,19 @@ export const dynamic = "force-dynamic";
 /**
  * Aviso automático de pagamento do Mercado Pago.
  *
- * Esta rota é a ÚNICA que libera acesso a uma live. A volta do comprador
- * pela tela de "pagamento aprovado" não libera nada — ela pode ser forjada
- * digitando um endereço no navegador.
+ * Esta rota é a ÚNICA que libera acesso a uma live sozinha. A volta do
+ * comprador pela tela de "pagamento aprovado" não libera nada — ela pode ser
+ * forjada digitando um endereço no navegador.
+ *
+ * Assinatura confere: seguimos direto.
+ *
+ * Assinatura NÃO confere: em vez de só recusar, tratamos o aviso como um
+ * palpite e vamos PERGUNTAR ao Mercado Pago, com o nosso access token, o que
+ * aconteceu com aquele pagamento. Quem autoriza passa a ser a resposta dele a
+ * uma pergunta nossa, e não a chamada que recebemos — por isso continua não
+ * havendo como forjar acesso. Existe porque trocar credencial entre teste e
+ * produção abre uma janela em que o aviso chega e não confere, e nessa janela
+ * quem pagou ficaria na porta.
  *
  * Sempre respondemos 200 rápido: se devolvermos erro, o Mercado Pago fica
  * reenviando o mesmo aviso por até 4 dias.
@@ -89,8 +100,16 @@ export async function POST(requisicao: Request) {
       ip,
       detalhes: { idDado, tipo: corpo.type ?? null },
     });
-    // 401 porque a chamada não é confiável — não é um erro nosso para reenviar.
-    return NextResponse.json({ erro: "assinatura inválida" }, { status: 401 });
+
+    // Um aviso sem assinatura vira apenas um PALPITE: "vá olhar o pagamento
+    // tal". Quem decide é a resposta do Mercado Pago a uma pergunta nossa,
+    // feita com o nosso access token, logo abaixo. Antes disso, um limite por
+    // IP — sem ele, este endereço serviria de sonda e queimaria a cota da API
+    // do Mercado Pago.
+    const liberadoAConferir = await podeTentar(`webhook-sem-assinatura:${ip ?? "sem-ip"}`, 30, 300);
+    if (!liberadoAConferir) {
+      return NextResponse.json({ erro: "assinatura inválida" }, { status: 401 });
+    }
   }
 
   // `type` é o webhook novo; `topic` é o IPN antigo. O Mercado Pago manda os
@@ -98,19 +117,54 @@ export async function POST(requisicao: Request) {
   // pagamento — buscá-lo dá erro à toa.
   const tipo =
     corpo.type ?? url.searchParams.get("type") ?? url.searchParams.get("topic");
-  if (tipo && tipo !== "payment") {
-    return NextResponse.json({ recebido: true }, { status: 200 });
+
+  // Nada a fazer com este aviso. Se ele veio assinado, respondemos 200 para o
+  // Mercado Pago não reenviar por quatro dias; se não veio, continua sendo uma
+  // chamada em que não se confia, e a resposta é 401.
+  const nadaAFazer = (tipo && tipo !== "payment") || !idDado || !supabaseServidorConfigurado;
+  if (nadaAFazer) {
+    return valida
+      ? NextResponse.json({ recebido: true }, { status: 200 })
+      : NextResponse.json({ erro: "assinatura inválida" }, { status: 401 });
   }
 
-  if (!idDado || !supabaseServidorConfigurado) {
-    return NextResponse.json({ recebido: true }, { status: 200 });
+  const liberou = await conferirNoMercadoPagoEAtualizar(idDado, ip, !valida);
+
+  // O caminho sem assinatura só vale se a conferência aprovou de fato. Se não
+  // aprovou, o aviso continua sendo o que era: uma chamada que não dá para
+  // confiar, e que leva 401.
+  if (!valida && !liberou) {
+    return NextResponse.json({ erro: "assinatura inválida" }, { status: 401 });
   }
 
+  return NextResponse.json({ recebido: true }, { status: 200 });
+}
+
+/**
+ * Pergunta ao Mercado Pago o que aconteceu com um pagamento e atualiza a
+ * compra. Devolve `true` se terminou com a compra aprovada.
+ *
+ * `semAssinatura` marca o caminho de resgate: o aviso chegou sem assinatura
+ * válida e, em vez de simplesmente recusar, nós vamos conferir. Duas
+ * restrições valem só nesse caminho, e são o que o mantêm seguro:
+ *
+ * - **Nunca deixa uma compra paga virar "pendente".** É o único rebaixamento
+ *   que poderia vir de uma leitura atrasada do Mercado Pago, e cortaria quem
+ *   pagou. Reembolso e contestação passam: ali o MP está afirmando uma
+ *   reversão, e a resposta veio para uma pergunta NOSSA.
+ * - **Quem recebe o acesso é o dono da compra no NOSSO banco**, não quem
+ *   mandou o aviso. Inventar um número de pagamento não leva a nada: ou ele
+ *   não existe, ou não é da nossa conta (nosso token não lê), ou não aponta
+ *   para compra nenhuma nossa.
+ */
+async function conferirNoMercadoPagoEAtualizar(
+  idDado: string,
+  ip: string | null,
+  semAssinatura: boolean,
+): Promise<boolean> {
   try {
     const pagamento = await buscarPagamento(idDado);
-    if (!pagamento?.externalReference) {
-      return NextResponse.json({ recebido: true }, { status: 200 });
-    }
+    if (!pagamento?.externalReference) return false;
 
     const supabase = clienteAdmin();
     const { data: compra } = await supabase
@@ -125,7 +179,7 @@ export async function POST(requisicao: Request) {
         ip,
         detalhes: { idDado, referencia: pagamento.externalReference },
       });
-      return NextResponse.json({ recebido: true }, { status: 200 });
+      return false;
     }
 
     let novoStatus = statusDaCompra(pagamento.status);
@@ -153,6 +207,41 @@ export async function POST(requisicao: Request) {
       });
     }
 
+    // Compra paga não é derrubada por um pagamento QUE NÃO É O DELA.
+    //
+    // A pessoa pode ter tentado e falhado antes de conseguir pagar; as duas
+    // tentativas carregam a mesma `external_reference`. Sem esta trava, o
+    // aviso da tentativa recusada chegava depois e tirava o acesso de quem
+    // já tinha pago. Reembolso e contestação são outra coisa — ali é uma
+    // reversão de verdade, e valem sempre.
+    const ehReversao = ["refunded", "charged_back"].includes(pagamento.status);
+    const outroPagamento =
+      Boolean(compra.mp_payment_id) && compra.mp_payment_id !== pagamento.id;
+
+    if (
+      compra.status === "aprovada" &&
+      novoStatus !== "aprovada" &&
+      !ehReversao &&
+      outroPagamento
+    ) {
+      await registrar({
+        usuarioId: compra.usuario_id,
+        liveId: compra.live_id,
+        acao: "webhook_mp_ignorou_status_de_outra_tentativa",
+        ip,
+        detalhes: {
+          idPagamento: pagamento.id,
+          statusMercadoPago: pagamento.status,
+          pagamentoQueLiberou: compra.mp_payment_id,
+        },
+      });
+      return false;
+    }
+
+    // Aviso sem assinatura não rebaixa para "pendente": esse é o único
+    // rebaixamento que pode nascer de leitura atrasada, e cortaria quem pagou.
+    if (semAssinatura && novoStatus === "pendente") return false;
+
     await supabase
       .from("compras")
       .update({
@@ -162,22 +251,33 @@ export async function POST(requisicao: Request) {
       })
       .eq("id", compra.id);
 
+    // Perdeu o acesso: a sessão cai junto. Sem isto, quem está com o player
+    // aberto continuaria assistindo até o token vencer — até 3 minutos e meio
+    // depois de o reembolso ter sido pedido.
+    if (compra.status === "aprovada" && novoStatus !== "aprovada") {
+      await supabase.from("sessoes_ativas").delete().eq("usuario_id", compra.usuario_id);
+    }
+
     await registrar({
       usuarioId: compra.usuario_id,
       liveId: compra.live_id,
-      acao: `pagamento_${novoStatus}`,
+      acao: semAssinatura
+        ? "pagamento_aprovado_conferido_no_mp"
+        : `pagamento_${novoStatus}`,
       ip,
       detalhes: {
         idPagamento: pagamento.id,
         statusMercadoPago: pagamento.status,
         valorCentavos: pagamento.valorCentavos,
+        semAssinatura,
       },
     });
+
+    return novoStatus === "aprovada";
   } catch (erro) {
     console.error("[webhook-mp] falha ao processar:", erro);
+    return false;
   }
-
-  return NextResponse.json({ recebido: true }, { status: 200 });
 }
 
 /** O Mercado Pago às vezes faz um GET de teste ao salvar a configuração. */

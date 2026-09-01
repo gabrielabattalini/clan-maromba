@@ -103,6 +103,18 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
   resposta vem do MP pela nossa credencial. Exige admin, confere o valor e
   deixa auditoria. É a rede de segurança do dia da live: se o aviso não
   chegar, o comprador que pagou não fica na porta.
+  A terceira é o **resgate do próprio webhook**: quando a assinatura não
+  confere, a rota trata o aviso como palpite e PERGUNTA ao Mercado Pago, com
+  o nosso token, o que houve com aquele pagamento. Quem autoriza é a resposta
+  dele, não a chamada recebida. Nunca deixa uma compra paga cair para
+  "pendente" (leitura atrasada cortaria quem pagou), e tem limite por IP para
+  o endereço não virar sonda.
+- **Reembolso e contestação cortam o acesso na hora**: `refunded` e
+  `charged_back` derrubam a compra e apagam a sessão ativa, então o player
+  para no próximo heartbeat (30 s) em vez de esperar o token vencer.
+  Já uma tentativa RECUSADA não derruba compra paga — as duas tentativas
+  carregam a mesma `external_reference`, e sem essa trava o aviso da que
+  falhou tirava o acesso de quem tinha pago na segunda.
 - RLS em todas as tabelas do Supabase.
 - Stream key só no painel admin.
 - Token de reprodução só para sessão ativa + compra confirmada da live.
