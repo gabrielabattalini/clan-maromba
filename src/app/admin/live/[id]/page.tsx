@@ -9,12 +9,15 @@ import {
   alternarIngresso,
   apagarCategoriaDoBolao,
   apagarLive,
+  apagarTentativaDeCompra,
   criarCanalDeTransmissao,
   derrubarSessao,
   mudarEstadoDaLive,
+  revogarAcesso,
 } from "@/app/admin/acoes";
 import { BotaoApagarLive } from "@/components/BotaoApagarLive";
 import { BotaoConferirPagamento } from "@/components/BotaoConferirPagamento";
+import { BotaoDeRisco } from "@/components/BotaoDeRisco";
 import { CampoCopiavel } from "@/components/CampoCopiavel";
 import { FormularioCategoria, FormularioPremio } from "@/components/FormularioBolao";
 import { FormularioBloco } from "@/components/FormularioBloco";
@@ -542,8 +545,23 @@ export default async function PaginaLiveAdmin({ params }: Props) {
 
                 <div className="flex shrink-0 gap-2">
                   {compra.status !== "aprovada" ? (
-                    <BotaoConferirPagamento compraId={compra.id} />
-                  ) : null}
+                    <>
+                      <BotaoConferirPagamento compraId={compra.id} />
+                      <BotaoDeRisco
+                        acao={apagarTentativaDeCompra.bind(null, compra.id)}
+                        rotulo="Apagar"
+                        confirmacao="Apagar mesmo"
+                        titulo="Some com esta linha. Só vale para compra que não foi paga."
+                      />
+                    </>
+                  ) : (
+                    <BotaoDeRisco
+                      acao={revogarAcesso.bind(null, compra.id)}
+                      rotulo="Revogar acesso"
+                      confirmacao="Revogar mesmo"
+                      titulo="Tira o acesso e derruba a sessão. Compra paga continua registrada."
+                    />
+                  )}
                   <form action={derrubarSessao.bind(null, compra.usuario_id)}>
                     <button
                       className="botao botao-secundario !px-3 !py-1.5 !text-xs"
