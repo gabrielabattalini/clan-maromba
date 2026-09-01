@@ -82,6 +82,59 @@ export async function criarPreferencia(dados: DadosPreferencia): Promise<string>
 }
 
 /**
+ * Procura no Mercado Pago o pagamento de uma compra nossa.
+ *
+ * É o caminho de PUXAR, para quando o aviso não chega ou não pode ser
+ * conferido. Diferente do webhook, aqui quem pergunta somos nós, com o nosso
+ * access token — não há assinatura para validar porque não há ninguém de
+ * fora falando: a resposta vem direto do Mercado Pago.
+ *
+ * A busca é por `external_reference`, que é o id da nossa compra e vai na
+ * preferência desde sempre.
+ */
+export async function buscarPagamentoDaCompra(
+  compraId: string,
+): Promise<PagamentoMP | null> {
+  if (!MP_TOKEN) return null;
+
+  const endereco = `${API}/v1/payments/search?sort=date_created&criteria=desc&external_reference=${encodeURIComponent(compraId)}`;
+
+  const resposta = await fetch(endereco, {
+    headers: { Authorization: `Bearer ${MP_TOKEN}` },
+    cache: "no-store",
+  });
+  if (!resposta.ok) return null;
+
+  const corpo = (await resposta.json()) as {
+    results?: {
+      id?: number | string;
+      status?: string;
+      external_reference?: string | null;
+      transaction_amount?: number;
+    }[];
+  };
+
+  const achados = corpo.results ?? [];
+  if (achados.length === 0) return null;
+
+  // Entre vários, o aprovado manda: a pessoa pode ter tentado e falhado antes
+  // de conseguir pagar, e é o que valeu que interessa.
+  const bruto =
+    achados.find((p) => p.status === "approved" || p.status === "authorized") ??
+    achados[0];
+
+  return {
+    id: String(bruto.id ?? ""),
+    status: bruto.status ?? "desconhecido",
+    externalReference: bruto.external_reference ?? null,
+    valorCentavos:
+      typeof bruto.transaction_amount === "number"
+        ? Math.round(bruto.transaction_amount * 100)
+        : null,
+  };
+}
+
+/**
  * De quem é a conta do nosso access token?
  *
  * Serve para o diagnóstico do webhook: se o `user_id` que vem no aviso não
