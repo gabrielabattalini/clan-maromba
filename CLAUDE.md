@@ -241,6 +241,29 @@ Apagar live existe no painel (`apagarLive`), mas **recusa quando há compra
 live. Para tirar de venda uma live já vendida, marcar `encerrada` no banco.
 Apagar também remove o live input na Cloudflare, para não deixar órfão.
 
+## Entrar com Google
+
+Existe ao lado do e-mail e senha, não no lugar. Quem entra pelo Google não
+tem senha para esquecer nem e-mail de confirmação para esperar — some o
+motivo da maior parte do suporte no dia da live. Mas **só Google barraria
+quem não tem conta Google** (Hotmail, Outlook, iCloud), e em evento avulso
+cada pessoa barrada é uma venda que não volta.
+
+O caminho de volta é o mesmo `/auth/confirmar`, que já trocava `code` por
+sessão. O que diferencia é `?fluxo=google`: com ele a rota registra
+`login_google` e manda a pessoa direto para onde estava, em vez da tela de
+"conta confirmada".
+
+Dois detalhes que mordem calado:
+
+- **O nome vem em campo diferente.** O nosso formulário grava `nome`; o
+  Google manda `full_name`. O gatilho de `perfis` lê os dois (e `name`),
+  senão todo mundo do Google vira "Sem nome" na lista de compradores e no
+  chat.
+- **Banimento tem de ser conferido no callback também.** O login por e-mail
+  já conferia; sem a mesma checagem em `/auth/confirmar`, bastava entrar pelo
+  Google para o banimento deixar de valer.
+
 ## Contas: confirmação de e-mail e recuperação de senha
 
 `/auth/confirmar` é onde caem TODOS os links que o Supabase manda por e-mail.

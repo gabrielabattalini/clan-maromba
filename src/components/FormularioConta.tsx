@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
+import { BotaoGoogle } from "@/components/BotaoGoogle";
 import type { EstadoFormulario } from "@/lib/tipos";
 
 type Props = {
@@ -18,6 +19,11 @@ export function FormularioConta({ modo, acao, voltar }: Props) {
   return (
     <form action={enviar} className="flex w-full flex-col gap-4">
       <input type="hidden" name="voltar" value={voltar} />
+
+      {/* O Google vem primeiro: é o caminho sem senha para esquecer e sem
+          e-mail para esperar. O de baixo continua para quem não tem conta
+          Google — barrar essas pessoas seria perder venda. */}
+      <BotaoGoogle voltar={voltar} />
 
       {estado?.erro ? (
         <p className="aviso aviso-erro" role="alert">

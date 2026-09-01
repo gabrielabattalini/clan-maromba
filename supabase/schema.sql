@@ -28,6 +28,11 @@ create table if not exists public.perfis (
 );
 
 -- Quando alguém se cadastra, o perfil nasce junto automaticamente.
+--
+-- O nome vem de campos diferentes conforme a porta de entrada: o nosso
+-- formulário grava `nome`, e o login pelo Google manda `full_name` (e, em
+-- alguns casos, só `name`). Sem os três, quem entrasse pelo Google apareceria
+-- como "Sem nome" na lista de compradores e no chat.
 create or replace function public.criar_perfil_novo_usuario()
 returns trigger
 language plpgsql
@@ -38,7 +43,12 @@ begin
   insert into public.perfis (id, nome, email)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'nome', ''),
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'nome', ''),
+      nullif(new.raw_user_meta_data ->> 'full_name', ''),
+      nullif(new.raw_user_meta_data ->> 'name', ''),
+      ''
+    ),
     coalesce(new.email, '')
   )
   on conflict (id) do nothing;
@@ -58,10 +68,29 @@ create trigger ao_criar_usuario
 insert into public.perfis (id, nome, email)
 select
   u.id,
-  coalesce(u.raw_user_meta_data ->> 'nome', ''),
+  coalesce(
+    nullif(u.raw_user_meta_data ->> 'nome', ''),
+    nullif(u.raw_user_meta_data ->> 'full_name', ''),
+    nullif(u.raw_user_meta_data ->> 'name', ''),
+    ''
+  ),
   coalesce(u.email, '')
 from auth.users u
 on conflict (id) do nothing;
+
+-- Perfil que já existe e ficou sem nome (entrou pelo Google antes deste
+-- ajuste) recebe o nome agora. Só preenche o que está vazio: nome que a
+-- pessoa escreveu não é sobrescrito.
+update public.perfis p
+   set nome = coalesce(
+     nullif(u.raw_user_meta_data ->> 'nome', ''),
+     nullif(u.raw_user_meta_data ->> 'full_name', ''),
+     nullif(u.raw_user_meta_data ->> 'name', ''),
+     ''
+   )
+  from auth.users u
+ where u.id = p.id
+   and coalesce(p.nome, '') = '';
 
 -- ------------------------------------------------------------
 -- LIVES — cada transmissão é um evento avulso com preço próprio

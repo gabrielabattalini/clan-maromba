@@ -2,6 +2,7 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { registrar } from "@/lib/auditoria";
+import { clienteAdmin } from "@/lib/supabase/admin";
 import { supabaseConfigurado } from "@/lib/config";
 import { destinoSeguro } from "@/lib/destino";
 import { ipDaRequisicao } from "@/lib/requisicao";
@@ -38,6 +39,12 @@ export async function GET(requisicao: Request) {
 
   if (!supabaseConfigurado) return paraOSite("/");
 
+  // `fluxo=google` diz que isto é um login social, e não a confirmação de um
+  // e-mail: o Google devolve para cá do mesmo jeito, com `code`, mas o
+  // desfecho é outro — a pessoa vai direto para onde estava, sem passar por
+  // uma tela dizendo "conta confirmada".
+  const ehLoginSocial = url.searchParams.get("fluxo") === "google";
+
   const codigo = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const tipoBruto = url.searchParams.get("type") ?? "";
@@ -68,6 +75,26 @@ export async function GET(requisicao: Request) {
   } = await supabase.auth.getUser();
 
   if (user) {
+    // Conta banida não entra por porta nenhuma. O login por e-mail já
+    // conferia isto; sem a mesma checagem aqui, bastaria entrar pelo Google
+    // para o banimento deixar de valer.
+    const { data: perfil } = await clienteAdmin()
+      .from("perfis")
+      .select("banido")
+      .eq("id", user.id)
+      .maybeSingle<{ banido: boolean }>();
+
+    if (perfil?.banido) {
+      await supabase.auth.signOut();
+      await registrar({
+        usuarioId: user.id,
+        acao: "login_recusado_conta_banida",
+        ip: ipDaRequisicao(requisicao),
+        navegador: requisicao.headers.get("user-agent"),
+      });
+      return paraOSite("/entrar?estado=banido");
+    }
+
     await abrirSessaoUnica(
       user.id,
       ipDaRequisicao(requisicao),
@@ -75,7 +102,11 @@ export async function GET(requisicao: Request) {
     );
     await registrar({
       usuarioId: user.id,
-      acao: tipo === "recovery" ? "recuperacao_confirmada" : "email_confirmado",
+      acao: ehLoginSocial
+        ? "login_google"
+        : tipo === "recovery"
+          ? "recuperacao_confirmada"
+          : "email_confirmado",
       ip: ipDaRequisicao(requisicao),
       navegador: requisicao.headers.get("user-agent"),
     });
@@ -85,6 +116,11 @@ export async function GET(requisicao: Request) {
   if (tipo === "recovery") return paraOSite("/nova-senha");
 
   const voltar = destinoSeguro(url.searchParams.get("proximo"));
+
+  // Quem entrou pelo Google já está dentro: mandar para uma tela de "pronto"
+  // seria um passo a mais sem nada para fazer nele.
+  if (ehLoginSocial) return paraOSite(voltar);
+
   const extra = voltar === "/" ? "" : `&proximo=${encodeURIComponent(voltar)}`;
 
   return paraOSite(`/auth/pronto?estado=ok&tipo=${tipo ?? "signup"}${extra}`);
