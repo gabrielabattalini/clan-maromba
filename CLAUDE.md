@@ -154,6 +154,34 @@ ingresso de verdade:
 
 O topo de `docs/seguranca.md` tem o passo a passo.
 
+## Quanto o site aguenta (medido em 01/09/2026)
+
+Durante uma transmissão, cada pessoa assistindo pede ao servidor:
+
+| O que | Intervalo | Por hora |
+|---|---|---|
+| Heartbeat (sessão única) | 30 s | 120 |
+| Token do vídeo | 3min30 | 17 |
+| Chat, receber | — | 0 (vem do Realtime) |
+
+**O vídeo não passa pela Vercel** — vai da Cloudflare direto para quem
+assiste. O chat, ao receber, também não: chega pelo Realtime do Supabase.
+
+Com 500 pessoas: ~17 pedidos por segundo, ~315 mil chamadas nas 5 horas das
+finais. Cabe no plano Pro da Vercel (1 milhão/mês incluído; o excedente é da
+ordem de US$ 0,60 por milhão).
+
+O gargalo NÃO é a Vercel: é o banco. Cada heartbeat é uma consulta ao
+Supabase, então o intervalo do heartbeat é o que governa a carga do dia.
+Antes eram 10 s — três vezes mais tráfego — e foi por isso que subiu para
+30 s. Se um dia precisar de mais fôlego, é esse número que se mexe primeiro
+(`SEGUNDOS_ENTRE_HEARTBEATS`, em `src/components/Player.tsx`).
+
+O cache de "está no ar?" (`SEGUNDOS_DE_CACHE`, em `src/lib/cloudflare.ts`)
+existe pelo mesmo motivo, com um limite diferente: a API da Cloudflare tem
+teto próprio de chamadas, e o cache vive em cada instância do servidor — num
+dia cheio a Vercel sobe várias, e cada uma pergunta por conta própria.
+
 ## Comandos
 
 ```bash

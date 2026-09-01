@@ -13,7 +13,17 @@ type Situacao =
   | { tipo: "tocando" }
   | { tipo: "parado"; mensagem: string; permiteTentarDeNovo: boolean };
 
-const SEGUNDOS_ENTRE_HEARTBEATS = 10;
+// 30 segundos, e não 10.
+//
+// O heartbeat é 96% de tudo que o site pede ao servidor durante uma
+// transmissão: com 500 pessoas assistindo, de 10 em 10 segundos são 50
+// consultas por segundo ao banco, cinco horas seguidas. Em 30 segundos isso
+// cai para um terço e continua cabendo folgado no plano.
+//
+// O que se perde: quem dividir a conta com alguém demora até 30 segundos
+// para ser derrubado, em vez de 10. A troca vale — a alternativa é o site
+// engasgar justamente quando estiver cheio.
+const SEGUNDOS_ENTRE_HEARTBEATS = 30;
 /** Pedimos um token novo antes do atual vencer (ele dura 5 minutos). */
 const SEGUNDOS_ENTRE_TOKENS = 210;
 const SEGUNDOS_ENTRE_MUDANCAS_DA_MARCA = 7;
