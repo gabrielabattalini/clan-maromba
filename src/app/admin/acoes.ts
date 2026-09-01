@@ -13,9 +13,11 @@ import { cloudflareConfigurado } from "@/lib/config";
 import { exigirAdmin } from "@/lib/conta";
 import { gerarSlug } from "@/lib/formato";
 import { ipDoVisitante } from "@/lib/requisicao";
+import { buscarPagamentoDaCompra, statusDaCompra } from "@/lib/mercadopago";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import type {
   ChaveAssinaturaGerada,
+  Compra,
   EstadoFormulario,
   EstadoLive,
 } from "@/lib/tipos";
@@ -1025,4 +1027,82 @@ export async function liberarCortesia(
   return {
     aviso: `Acesso liberado para ${perfil.nome || perfil.email} — “${ingresso.nome}”.`,
   };
+}
+
+
+/**
+ * Pergunta ao Mercado Pago se uma compra foi paga, e libera se foi.
+ *
+ * É a rede de segurança do dia da live. O caminho normal é o webhook: o
+ * Mercado Pago avisa e o acesso sai sozinho. Mas o aviso pode não chegar, ou
+ * chegar de um jeito que não dá para conferir — foi o que aconteceu no
+ * ambiente de teste em 01/09/2026, e num dia de venda seria um comprador
+ * pago esperando na porta.
+ *
+ * Aqui a direção se inverte: quem pergunta somos nós, com o nosso access
+ * token. Por isso não há assinatura a validar — não existe ninguém de fora
+ * falando, a resposta vem direto do Mercado Pago. Continua valendo a
+ * conferência de valor, e continua sendo só para admin logado.
+ */
+export async function conferirPagamento(compraId: string): Promise<void> {
+  const conta = await exigirAdmin();
+  const supabase = clienteAdmin();
+
+  const { data: compra } = await supabase
+    .from("compras")
+    .select("*")
+    .eq("id", compraId)
+    .maybeSingle<Compra>();
+
+  if (!compra) return;
+
+  const pagamento = await buscarPagamentoDaCompra(compraId);
+
+  if (!pagamento) {
+    await registrar({
+      usuarioId: conta.usuarioId,
+      liveId: compra.live_id,
+      acao: "admin_conferiu_pagamento_sem_achar",
+      ip: await ipDoVisitante(),
+      detalhes: { compraId },
+    });
+    revalidatePath(`/admin/live/${compra.live_id}`);
+    return;
+  }
+
+  let novoStatus = statusDaCompra(pagamento.status);
+
+  // A mesma trava do webhook: pagou menos do que foi cobrado, não libera.
+  if (
+    novoStatus === "aprovada" &&
+    typeof pagamento.valorCentavos === "number" &&
+    pagamento.valorCentavos < compra.valor_centavos - 1
+  ) {
+    novoStatus = "pendente";
+  }
+
+  await supabase
+    .from("compras")
+    .update({
+      status: novoStatus,
+      mp_payment_id: pagamento.id,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", compra.id);
+
+  await registrar({
+    usuarioId: conta.usuarioId,
+    liveId: compra.live_id,
+    acao: "admin_conferiu_pagamento",
+    ip: await ipDoVisitante(),
+    detalhes: {
+      compraId,
+      comprador: compra.usuario_id,
+      idPagamento: pagamento.id,
+      statusMercadoPago: pagamento.status,
+      virou: novoStatus,
+    },
+  });
+
+  revalidatePath(`/admin/live/${compra.live_id}`);
 }

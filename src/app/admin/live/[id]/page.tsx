@@ -9,6 +9,7 @@ import {
   alternarIngresso,
   apagarCategoriaDoBolao,
   apagarLive,
+  conferirPagamento,
   criarCanalDeTransmissao,
   derrubarSessao,
   mudarEstadoDaLive,
@@ -523,6 +524,17 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                 </div>
 
                 <div className="flex shrink-0 gap-2">
+                  {compra.status !== "aprovada" ? (
+                    <form action={conferirPagamento.bind(null, compra.id)}>
+                      <button
+                        className="botao !px-3 !py-1.5 !text-xs"
+                        type="submit"
+                        title="Pergunta ao Mercado Pago se esta compra foi paga e libera o acesso se foi"
+                      >
+                        Conferir pagamento
+                      </button>
+                    </form>
+                  ) : null}
                   <form action={derrubarSessao.bind(null, compra.usuario_id)}>
                     <button
                       className="botao botao-secundario !px-3 !py-1.5 !text-xs"
