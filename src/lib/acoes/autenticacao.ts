@@ -122,10 +122,13 @@ export async function cadastrar(
   // brecha que `pedirNovaSenha` já fecha. Em vez de contar, a tela mostra os
   // dois caminhos (entrar / nova senha), que é o que a pessoa precisa nos
   // dois casos.
+  // As duas frases são condicionais de propósito: valem tanto com a
+  // confirmação por e-mail ligada quanto desligada no Supabase, e nenhuma
+  // delas conta se este e-mail existe ou não.
   const CONFIRA_O_EMAIL: EstadoFormulario = {
     aviso:
-      "Pronto. Se este e-mail ainda não tinha conta, o link de confirmação " +
-      "acabou de sair — olhe também o lixo eletrônico.",
+      "Se você acabou de criar a conta, o link de confirmação foi para a sua " +
+      "caixa de entrada — olhe também o lixo eletrônico.",
     codigo: "conferir_email",
   };
 

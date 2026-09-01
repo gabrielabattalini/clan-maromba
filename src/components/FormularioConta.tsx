@@ -31,8 +31,7 @@ export function FormularioConta({ modo, acao, voltar }: Props) {
         <div className="aviso aviso-ok" role="status">
           {estado.aviso}
           <p className="mt-2 text-texto-fraco">
-            Não chegou nada? Pode ser que este e-mail já tenha conta — nesse
-            caso o cadastro não se repete.{" "}
+            Se este e-mail já tinha conta, o cadastro não se repete.{" "}
             <Link className="font-medium text-texto underline" href="/entrar">
               Entrar
             </Link>{" "}
