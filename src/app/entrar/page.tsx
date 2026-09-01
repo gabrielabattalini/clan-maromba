@@ -9,10 +9,10 @@ import { contaAtual } from "@/lib/conta";
 
 export const metadata: Metadata = { title: "Entrar" };
 
-type Props = { searchParams: Promise<{ voltar?: string }> };
+type Props = { searchParams: Promise<{ voltar?: string; estado?: string }> };
 
 export default async function PaginaEntrar({ searchParams }: Props) {
-  const { voltar } = await searchParams;
+  const { voltar, estado } = await searchParams;
   const destino = destinoSeguro(voltar);
 
   if (supabaseConfigurado) {
@@ -28,6 +28,12 @@ export default async function PaginaEntrar({ searchParams }: Props) {
           Use a conta que você criou para comprar e assistir às lives.
         </p>
       </header>
+
+      {estado === "banido" ? (
+        <p className="aviso aviso-erro" role="alert">
+          Esta conta está bloqueada. Fale com o suporte.
+        </p>
+      ) : null}
 
       {supabaseConfigurado ? (
         <div className="cartao p-6 sm:p-7">
