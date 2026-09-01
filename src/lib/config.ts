@@ -23,7 +23,23 @@ export const CF_CHAVE_ASSINATURA_ID = ler("CLOUDFLARE_STREAM_SIGNING_KEY_ID");
 export const CF_CHAVE_ASSINATURA_JWK = ler("CLOUDFLARE_STREAM_SIGNING_KEY_JWK");
 
 export const MP_TOKEN = ler("MP_ACCESS_TOKEN");
-export const MP_SEGREDO_WEBHOOK = ler("MP_WEBHOOK_SECRET");
+/**
+ * Segredos aceitos na assinatura do webhook do Mercado Pago.
+ *
+ * É uma LISTA porque o Mercado Pago tem um segredo por modo (teste e
+ * produção), e o dono alterna entre os dois enquanto testa. Com um valor só,
+ * cada troca de credencial exige lembrar de trocar o segredo junto — esquecer
+ * derruba a liberação de acesso sem dar nenhuma pista, que foi exatamente o
+ * que aconteceu em 01/09/2026. Cadastre os dois separados por vírgula e a
+ * troca deixa de ter esse risco.
+ */
+export const MP_SEGREDOS_WEBHOOK = ler("MP_WEBHOOK_SECRET")
+  .split(/[\s,;]+/)
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+/** Só para as telas que perguntam "está configurado?". */
+export const MP_SEGREDO_WEBHOOK = MP_SEGREDOS_WEBHOOK[0] ?? "";
 
 /** Login e banco disponíveis (Passo 2 da Fase 0). */
 export const supabaseConfigurado = Boolean(SUPABASE_URL && SUPABASE_CHAVE_PUBLICA);

@@ -9,7 +9,11 @@ import { createHmac } from "node:crypto";
 import { test } from "node:test";
 
 const SEGREDO = "segredo-de-teste-abc123";
-process.env.MP_WEBHOOK_SECRET = SEGREDO;
+// O Mercado Pago tem um segredo para o modo teste e outro para produção, e o
+// dono alterna entre os dois. Os dois ficam cadastrados, separados por
+// vírgula — é isso que a lista abaixo representa.
+const OUTRO_SEGREDO = "segredo-do-modo-producao-xyz";
+process.env.MP_WEBHOOK_SECRET = `${SEGREDO}, ${OUTRO_SEGREDO}`;
 
 const { assinaturaValida } = await import("@/lib/mercadopago");
 
@@ -130,4 +134,39 @@ test("não aceita manifesto sem id quando algum id veio na requisição", () => 
 test("aceita manifesto sem id quando id nenhum veio", () => {
   const semId = `request-id:${ID_REQUISICAO};ts:${TS};`;
   assert.equal(assinaturaValida(cabecalho(semId), ID_REQUISICAO, [null, null]), true);
+});
+
+// ------------------------------------------------------------
+// Vários segredos ao mesmo tempo
+// ------------------------------------------------------------
+// Cadastrar os dois tira o risco de trocar a credencial do Mercado Pago e
+// esquecer o segredo: a troca deixaria de liberar acesso, sem nenhuma pista.
+
+test("aceita assinatura feita com o segundo segredo cadastrado", () => {
+  assert.equal(
+    assinaturaValida(
+      cabecalho(MANIFESTO_COMPLETO, TS, OUTRO_SEGREDO),
+      ID_REQUISICAO,
+      ID_DADO,
+    ),
+    true,
+  );
+});
+
+test("continua aceitando o primeiro", () => {
+  assert.equal(
+    assinaturaValida(cabecalho(MANIFESTO_COMPLETO), ID_REQUISICAO, ID_DADO),
+    true,
+  );
+});
+
+test("recusa um terceiro segredo, que não foi cadastrado", () => {
+  assert.equal(
+    assinaturaValida(
+      cabecalho(MANIFESTO_COMPLETO, TS, "segredo-que-ninguem-cadastrou"),
+      ID_REQUISICAO,
+      ID_DADO,
+    ),
+    false,
+  );
 });
