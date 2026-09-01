@@ -1044,7 +1044,10 @@ export async function liberarCortesia(
  * falando, a resposta vem direto do Mercado Pago. Continua valendo a
  * conferência de valor, e continua sendo só para admin logado.
  */
-export async function conferirPagamento(compraId: string): Promise<void> {
+export async function conferirPagamento(
+  compraId: string,
+  _anterior: EstadoFormulario,
+): Promise<EstadoFormulario> {
   const conta = await exigirAdmin();
   const supabase = clienteAdmin();
 
@@ -1054,7 +1057,7 @@ export async function conferirPagamento(compraId: string): Promise<void> {
     .eq("id", compraId)
     .maybeSingle<Compra>();
 
-  if (!compra) return;
+  if (!compra) return { erro: "Compra não encontrada." };
 
   const pagamento = await buscarPagamentoDaCompra(compraId);
 
@@ -1067,7 +1070,11 @@ export async function conferirPagamento(compraId: string): Promise<void> {
       detalhes: { compraId },
     });
     revalidatePath(`/admin/live/${compra.live_id}`);
-    return;
+    return {
+      erro:
+        "O Mercado Pago não achou pagamento para esta compra. Ou ela nunca " +
+        "foi paga, ou foi paga com outras credenciais das que estão no site agora.",
+    };
   }
 
   let novoStatus = statusDaCompra(pagamento.status);
@@ -1105,4 +1112,9 @@ export async function conferirPagamento(compraId: string): Promise<void> {
   });
 
   revalidatePath(`/admin/live/${compra.live_id}`);
+
+  if (novoStatus === "aprovada") return { aviso: "Pago. Acesso liberado." };
+  return {
+    aviso: `O Mercado Pago diz "${pagamento.status}". Ainda não dá para liberar.`,
+  };
 }
