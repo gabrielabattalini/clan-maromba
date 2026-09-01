@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { MP_SEGREDOS_WEBHOOK, MP_TOKEN, enderecoDoSite } from "@/lib/config";
+import { descobrirAssinatura } from "@/lib/mp-diagnostico";
 
 const API = "https://api.mercadopago.com";
 
@@ -190,10 +191,22 @@ export function assinaturaValida(
   // única saída é adivinhar. Nada aqui é segredo: o manifesto é público e do
   // segredo sai só o tamanho, que é o que denuncia um "colar" pela metade.
   if (process.env.NODE_ENV === "production") {
+    // Descobre com QUE chave e QUE formato o aviso foi assinado. Não decide
+    // nada — só devolve o rótulo da combinação, para o erro parar de ser mudo.
+    const combinacao = descobrirAssinatura(
+      { ts, v1, idRequisicao, ids: Array.isArray(idDado) ? idDado : [idDado] },
+      [
+        ...MP_SEGREDOS_WEBHOOK.map((valor, i) => ({ rotulo: `segredo${i}`, valor })),
+        { rotulo: "sem-chave", valor: " " },
+        { rotulo: "access-token", valor: MP_TOKEN },
+      ],
+    );
+
     console.error("[webhook-mp] assinatura não confere", {
       manifestosTentados: tentados,
       v1Recebido: v1.slice(0, 12),
       segredosCadastrados: MP_SEGREDOS_WEBHOOK.map((s) => s.length),
+      combinacaoQueBate: combinacao ?? "nenhuma das testadas",
     });
   }
 
