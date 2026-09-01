@@ -52,8 +52,9 @@ type LinhaComprador = {
   status: StatusCompra;
   valor_centavos: number;
   criado_em: string;
-  perfis: { nome: string; email: string; banido: boolean } | null;
 };
+
+type PerfilDoComprador = { id: string; nome: string; email: string; banido: boolean };
 
 export default async function PaginaLiveAdmin({ params }: Props) {
   await exigirAdmin();
@@ -85,14 +86,30 @@ export default async function PaginaLiveAdmin({ params }: Props) {
 
   const resultadosPublicados = new Set(resultadosDoBolao.map((r) => r.categoria_id));
 
-  const { data: compradores } = await clienteAdmin()
+  // Duas consultas, e não um join.
+  //
+  // `compras.usuario_id` aponta para `auth.users`, não para `perfis` — então
+  // pedir `perfis(...)` embutido faz a consulta INTEIRA falhar, e a tela dizia
+  // "ninguém comprou ainda" mesmo com compras na mesa. Passou despercebido
+  // porque, até 01/09/2026, nunca tinha havido uma compra para mostrar.
+  const supabaseAdmin = clienteAdmin();
+
+  const { data: compradores } = await supabaseAdmin
     .from("compras")
-    .select("id, usuario_id, status, valor_centavos, criado_em, perfis(nome, email, banido)")
+    .select("id, usuario_id, status, valor_centavos, criado_em")
     .eq("live_id", live.id)
     .order("criado_em", { ascending: false })
     .returns<LinhaComprador[]>();
 
   const lista = compradores ?? [];
+
+  const { data: perfisDosCompradores } = await supabaseAdmin
+    .from("perfis")
+    .select("id, nome, email, banido")
+    .in("id", [...new Set(lista.map((c) => c.usuario_id))])
+    .returns<PerfilDoComprador[]>();
+
+  const perfilDe = new Map((perfisDosCompradores ?? []).map((p) => [p.id, p]));
   const pagantes = lista.filter((c) => c.status === "aprovada");
   const faturamento = pagantes.reduce((total, c) => total + c.valor_centavos, 0);
 
@@ -507,15 +524,15 @@ export default async function PaginaLiveAdmin({ params }: Props) {
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium">
-                    {compra.perfis?.nome || "Sem nome"}
-                    {compra.perfis?.banido ? (
+                    {perfilDe.get(compra.usuario_id)?.nome || "Sem nome"}
+                    {perfilDe.get(compra.usuario_id)?.banido ? (
                       <span className="ml-2 text-xs font-bold uppercase text-destaque">
                         banido
                       </span>
                     ) : null}
                   </p>
                   <p className="truncate text-xs text-texto-fraco">
-                    {compra.perfis?.email} · {ROTULO_STATUS_COMPRA[compra.status]} ·{" "}
+                    {perfilDe.get(compra.usuario_id)?.email} · {ROTULO_STATUS_COMPRA[compra.status]} ·{" "}
                     {compra.valor_centavos === 0
                       ? "cortesia"
                       : precoEmReais(compra.valor_centavos)}{" "}
@@ -548,14 +565,14 @@ export default async function PaginaLiveAdmin({ params }: Props) {
                     action={alternarBanimento.bind(
                       null,
                       compra.usuario_id,
-                      !compra.perfis?.banido,
+                      !perfilDe.get(compra.usuario_id)?.banido,
                     )}
                   >
                     <button
                       className="botao botao-secundario !px-3 !py-1.5 !text-xs"
                       type="submit"
                     >
-                      {compra.perfis?.banido ? "Desbanir" : "Banir"}
+                      {perfilDe.get(compra.usuario_id)?.banido ? "Desbanir" : "Banir"}
                     </button>
                   </form>
                 </div>
