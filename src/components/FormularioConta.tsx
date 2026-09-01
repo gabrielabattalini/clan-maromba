@@ -25,7 +25,25 @@ export function FormularioConta({ modo, acao, voltar }: Props) {
         </p>
       ) : null}
 
-      {estado?.aviso ? (
+      {estado?.codigo === "conferir_email" ? (
+        // Os dois caminhos ficam à mão: se a pessoa já tinha conta, nada foi
+        // enviado, e é daqui que ela sai do lugar sem precisar do e-mail.
+        <div className="aviso aviso-ok" role="status">
+          {estado.aviso}
+          <p className="mt-2 text-texto-fraco">
+            Não chegou nada? Pode ser que este e-mail já tenha conta — nesse
+            caso o cadastro não se repete.{" "}
+            <Link className="font-medium text-texto underline" href="/entrar">
+              Entrar
+            </Link>{" "}
+            ou{" "}
+            <Link className="font-medium text-texto underline" href="/recuperar">
+              criar uma senha nova
+            </Link>
+            .
+          </p>
+        </div>
+      ) : estado?.aviso ? (
         <p className="aviso aviso-ok" role="status">
           {estado.aviso}
         </p>

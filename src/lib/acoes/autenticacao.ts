@@ -115,22 +115,46 @@ export async function cadastrar(
     },
   });
 
+  // A MESMA resposta para e-mail novo e para e-mail que já tem conta.
+  //
+  // Se a tela dissesse "este e-mail já é cadastrado", o formulário de
+  // cadastro viraria uma forma de descobrir quem é cliente do dono — a mesma
+  // brecha que `pedirNovaSenha` já fecha. Em vez de contar, a tela mostra os
+  // dois caminhos (entrar / nova senha), que é o que a pessoa precisa nos
+  // dois casos.
+  const CONFIRA_O_EMAIL: EstadoFormulario = {
+    aviso:
+      "Pronto. Se este e-mail ainda não tinha conta, o link de confirmação " +
+      "acabou de sair — olhe também o lixo eletrônico.",
+    codigo: "conferir_email",
+  };
+
   if (error) {
+    // O Supabase às vezes devolve erro de duplicado (quando a confirmação
+    // por e-mail está desligada). Também aqui a resposta não muda.
     const jaExiste = /already|registered|exists/i.test(error.message);
-    return {
-      erro: jaExiste
-        ? "Já existe uma conta com este e-mail. Tente entrar."
-        : "Não consegui criar a conta agora. Tente de novo em instantes.",
-    };
+    if (jaExiste) {
+      await registrar({ acao: "cadastro_com_email_ja_usado", ip, navegador, detalhes: { email } });
+      return CONFIRA_O_EMAIL;
+    }
+    return { erro: "Não consegui criar a conta agora. Tente de novo em instantes." };
   }
 
-  // Quando a confirmação por e-mail está ligada no Supabase, o cadastro
-  // não devolve sessão: a pessoa precisa clicar no link da caixa de entrada.
-  if (!data.session || !data.user) {
-    return {
-      aviso: "Conta criada! Confira seu e-mail e clique no link de confirmação para entrar.",
-    };
+  // Com a confirmação de e-mail ligada, e-mail que JÁ TEM CONTA não dá erro:
+  // o Supabase devolve sucesso, sem sessão, com um usuário de mentira cuja
+  // lista de identidades vem vazia — e não manda e-mail nenhum. Era isso que
+  // fazia a tela dizer "conta criada, confira seu e-mail" para quem nunca ia
+  // receber e-mail nenhum. O registro fica no diário: é o que permite ao
+  // dono responder "você já tem conta" quando a pessoa reclamar.
+  const jaTinhaConta = (data.user?.identities?.length ?? 1) === 0;
+  if (jaTinhaConta) {
+    await registrar({ acao: "cadastro_com_email_ja_usado", ip, navegador, detalhes: { email } });
+    return CONFIRA_O_EMAIL;
   }
+
+  // Sem sessão = a confirmação por e-mail está ligada e a pessoa precisa
+  // clicar no link da caixa de entrada.
+  if (!data.session || !data.user) return CONFIRA_O_EMAIL;
 
   await abrirSessaoUnica(data.user.id, ip, navegador);
   await registrar({ usuarioId: data.user.id, acao: "cadastro", ip, navegador });

@@ -1,6 +1,11 @@
 // Formato dos dados que circulam entre banco, páginas e rotas.
 
-export type EstadoFormulario = { erro?: string; aviso?: string } | null;
+export type EstadoFormulario = {
+  erro?: string;
+  aviso?: string;
+  /** Marca um aviso que a tela desenha diferente (com links, por exemplo). */
+  codigo?: "conferir_email";
+} | null;
 
 export type ChaveAssinaturaGerada = {
   erro?: string;
