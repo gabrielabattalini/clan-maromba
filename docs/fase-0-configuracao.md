@@ -58,11 +58,16 @@ vai pintando de verde nos próximos passos.
 4. Clique em **Deploy** e espere 1 a 3 minutos (vai aparecer uma animação de
    confete quando terminar).
 5. Anote o endereço que a Vercel te deu — algo como
-   `https://clan-maromba.vercel.app`. **Esse é o endereço do seu site.**
-6. Agora cadastre esse endereço como variável, usando **a receita do quadro
-   acima**:
+   `https://clan-maromba.vercel.app`.
+6. Agora cadastre o endereço do site como variável, usando **a receita do
+   quadro acima**:
    - **Key:** `NEXT_PUBLIC_SITE_URL`
    - **Value:** o endereço completo, com `https://` e **sem barra no final**
+
+> 📌 **Desde 05/09/2026 o site tem domínio próprio:**
+> `https://misterolympia2026.online`. É esse que vai na variável — não o
+> endereço `.vercel.app`. O passo a passo de ligar o domínio está em
+> `docs/dominio-proprio.md`.
 
 ✅ **Teste do passo 1:** abra o endereço do site. Deve aparecer uma página
 escura escrito **"Clan Maromba — em construção"**. Abra também

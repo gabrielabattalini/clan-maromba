@@ -11,7 +11,7 @@ export type VarInfo = {
 export const VARIAVEIS: VarInfo[] = [
   {
     nome: "NEXT_PUBLIC_SITE_URL",
-    descricao: "Endereço público do site (ex.: https://clanmaromba.vercel.app)",
+    descricao: "Endereço público do site (ex.: https://misterolympia2026.online)",
     fase: 0,
   },
   {

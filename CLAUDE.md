@@ -54,6 +54,13 @@ Andamento:
 - ✅ **Webhook do MP** — `MP_WEBHOOK_SECRET` cadastrado
 - ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
 - ⬜ **Chave de assinatura** — 2 valores, gerados em `/admin/configuracao`
+- 🔄 **Domínio próprio** — `misterolympia2026.online`, comprado em 05/09/2026.
+  Passo a passo em `docs/dominio-proprio.md`. **No código não muda nada**: o
+  site descobre o endereço por `NEXT_PUBLIC_SITE_URL` e mais nada. O trabalho
+  é em 4 painéis — Vercel (domínio + variável + redeploy), Supabase (Site URL
+  e Redirect URLs, senão o link de e-mail quebra) e Mercado Pago (URL do
+  webhook nas duas abas). O login com Google **não** precisa de ajuste: ele
+  volta pelo endereço do Supabase, que não mudou.
 
 Notas de ambiente (revisado em 14/08/2026): `api.vercel.com` **não está mais
 bloqueado** — o 403 que aparecia era a própria Vercel dizendo "falta token", não
@@ -87,8 +94,9 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
   banir/derrubar) → logs de auditoria. Termina com o teste de ponta a ponta
   descrito em `docs/fase-1-ligar-tudo.md`.
 - **Fase 2:** replay pago, cupons, e-mail de confirmação, chat, home com agenda.
-- **Fase 3:** credenciais MP de produção, domínio próprio, checklist do dia da
-  live (OBS: resolução/bitrate/keyframe, abrir/encerrar, plano B).
+- **Fase 3:** credenciais MP de produção, domínio próprio (comprado —
+  `misterolympia2026.online`, ver `docs/dominio-proprio.md`), checklist do dia
+  da live (OBS: resolução/bitrate/keyframe, abrir/encerrar, plano B).
 
 ## Segurança — inegociável
 

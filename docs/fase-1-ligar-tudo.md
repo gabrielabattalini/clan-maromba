@@ -37,7 +37,7 @@ e depois de cada teste você já vê uma parte do site funcionando de verdade.
 **Antes de começar**, cadastre esta, que ficou faltando lá da Fase 0:
 
 - **Key:** `NEXT_PUBLIC_SITE_URL`
-- **Value:** `https://clan-maromba.vercel.app`
+- **Value:** `https://misterolympia2026.online`
 
 ---
 
@@ -63,7 +63,7 @@ manda 3 e-mails por hora — na estreia isso trava seus compradores.
 
 Faça o **Redeploy**.
 
-✅ **Teste:** abra `https://clan-maromba.vercel.app/status`. A luz do
+✅ **Teste:** abra `https://misterolympia2026.online/status`. A luz do
 **Supabase** deve estar **verde**, escrito "Conectado", e as quatro primeiras
 variáveis com ✅.
 
@@ -88,7 +88,7 @@ depois.
 
 **2b. Criar a sua conta**
 
-Agora sim: abra `https://clan-maromba.vercel.app/cadastro` e crie a conta com o
+Agora sim: abra `https://misterolympia2026.online/cadastro` e crie a conta com o
 seu e-mail de verdade. Deve entrar direto e seu nome aparecer no canto superior
 direito.
 
@@ -139,7 +139,7 @@ a pessoa paga e não recebe nada.
 2. A seção **2. Aviso de pagamento** mostra o endereço que você precisa colar.
    Ele é este:
    ```
-   https://clan-maromba.vercel.app/api/webhooks/mercadopago
+   https://misterolympia2026.online/api/webhooks/mercadopago
    ```
 3. Vá em <https://www.mercadopago.com.br/developers/panel> → sua aplicação
    **Clan Maromba** → menu da esquerda → **Webhooks**
