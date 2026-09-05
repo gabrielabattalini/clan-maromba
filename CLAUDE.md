@@ -54,13 +54,20 @@ Andamento:
 - ✅ **Webhook do MP** — `MP_WEBHOOK_SECRET` cadastrado
 - ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
 - ⬜ **Chave de assinatura** — 2 valores, gerados em `/admin/configuracao`
-- 🔄 **Domínio próprio** — `misterolympia2026.online`, comprado em 05/09/2026.
-  Passo a passo em `docs/dominio-proprio.md`. **No código não muda nada**: o
-  site descobre o endereço por `NEXT_PUBLIC_SITE_URL` e mais nada. O trabalho
-  é em 4 painéis — Vercel (domínio + variável + redeploy), Supabase (Site URL
+- 🔄 **Domínio próprio** — `misterolympia2026.online`, comprado em 05/09/2026
+  **pela própria Vercel**, então o DNS já é dela e já resolve. Passo a passo em
+  `docs/dominio-proprio.md`. **No código não muda nada**: o site descobre o
+  endereço por `NEXT_PUBLIC_SITE_URL` e mais nada. O trabalho é em 3 painéis —
+  Vercel (ligar o domínio ao projeto + variável + redeploy), Supabase (Site URL
   e Redirect URLs, senão o link de e-mail quebra) e Mercado Pago (URL do
   webhook nas duas abas). O login com Google **não** precisa de ajuste: ele
   volta pelo endereço do Supabase, que não mudou.
+  **Não mover o DNS para a Cloudflare.** Foi considerado em 05/09/2026 para
+  juntar tudo num painel só, e descartado: o Stream não precisa do domínio lá
+  (o vídeo sai de `customer-XXXX.cloudflarestream.com`, que é da conta), e
+  trocar nameserver perto do evento arrisca deixar o site fora do ar sem ganho
+  nenhum. Se a Cloudflare pedir para apagar `ns1/ns2.vercel-dns.com`, é isso
+  que tira o site do ar.
 
 Notas de ambiente (revisado em 14/08/2026): `api.vercel.com` **não está mais
 bloqueado** — o 403 que aparecia era a própria Vercel dizendo "falta token", não
