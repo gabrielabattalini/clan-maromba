@@ -15,7 +15,7 @@ e depois de cada teste você já vê uma parte do site funcionando de verdade.
 | 2 | Banco de dados | grátis | Criar lives, painel do dono |
 | 3 | Mercado Pago | grátis (teste) | Botão de compra |
 | 4 | Aviso de pagamento | grátis | Liberação automática do acesso |
-| 5 | Cloudflare Stream | US$ 5 | A transmissão em si |
+| 5 | Cloudflare Stream | US$ 5/mês + uso | A transmissão em si |
 | 6 | Proteção do vídeo | grátis | O cadeado do player |
 
 ---
