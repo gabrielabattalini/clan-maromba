@@ -25,10 +25,13 @@ webhook, player, marca d'água, sessão única, auditoria, limite de tentativas)
 O que falta é **configuração**, não programação. O caminho está em
 `docs/fase-1-ligar-tudo.md` — 6 passos, cada um com teste.
 
-Situação em 14/08/2026, fim da manhã: **falta só a Cloudflare**. Supabase e
+Situação em 05/09/2026, fim da tarde: **falta só a Cloudflare**. Supabase e
 Mercado Pago (token + segredo do webhook) estão preenchidos e valendo em
-produção. As 3 variáveis da Cloudflare e as 2 da chave de assinatura são as
-únicas vazias — e é por isso que ninguém consegue assistir ainda.
+produção, e o domínio próprio está no ar em
+`https://misterolympia2026.online` — webhook do MP conferido nele com
+200 (assinatura validada, conta `357237735`, a do dono). As 3 variáveis da
+Cloudflare e as 2 da chave de assinatura são as únicas vazias — e é por isso
+que ninguém consegue assistir ainda.
 
 Ordem de dependência (não dá para pular): Supabase → SQL do
 `supabase/schema.sql` → virar admin → Mercado Pago → `MP_WEBHOOK_SECRET` →
@@ -52,8 +55,34 @@ Andamento:
   `auth.users` para `perfis`, então rodar depois de já ter conta funciona.
 - ✅ **Mercado Pago** — Access Token de teste (`TEST-`) cadastrado
 - ✅ **Webhook do MP** — `MP_WEBHOOK_SECRET` cadastrado
-- ⬜ **Cloudflare Stream** — 3 chaves (é o passo pago, US$ 5)
+- ⬜ **Cloudflare Stream** — 3 chaves. É o ÚNICO passo que ainda impede
+  alguém de assistir.
 - ⬜ **Chave de assinatura** — 2 valores, gerados em `/admin/configuracao`
+- ✅ **Domínio próprio** — `misterolympia2026.online`, comprado em 05/09/2026
+  **pela própria Vercel** (o DNS já era dela) e ligado no mesmo dia. **No
+  código não mudou nada**: o site descobre o endereço por
+  `NEXT_PUBLIC_SITE_URL` e mais nada. O histórico e o passo a passo estão em
+  `docs/dominio-proprio.md`. Três coisas que valem a pena não reaprender:
+  - **O endereço oficial é o curto**, sem `www`. A Vercel liga o `www` à
+    Production por padrão e faz o curto redirecionar; foi invertido de
+    propósito. O endereço do webhook do Mercado Pago não pode ser um desvio:
+    se responder 307/308 em vez de 200, o aviso pode ser registrado como
+    falho — e aviso que falha é comprador que pagou e não recebeu acesso.
+  - **`NEXT_PUBLIC_*` não pode mais ser do tipo Secret na Vercel.** Ela recusa
+    salvar (o prefixo entrega o valor ao navegador de qualquer jeito) e não
+    converte para Config (segredo salvo é só-escrita). A saída é apagar e
+    recriar como Config. Vale para as duas do Supabase no dia em que
+    precisarem mudar.
+  - **O `Site URL` do Supabase aceita UM endereço e não aceita curinga.** O
+    `/**` é só da lista `Redirect URLs`, que ficou com o domínio novo e o
+    antigo — endereço velho ainda circula em e-mail de recuperação de senha.
+
+  **Não mover o DNS para a Cloudflare.** Foi considerado em 05/09/2026 para
+  juntar tudo num painel só, e descartado: o Stream não precisa do domínio lá
+  (o vídeo sai de `customer-XXXX.cloudflarestream.com`, que é da conta), e
+  trocar nameserver perto do evento arrisca deixar o site fora do ar sem ganho
+  nenhum. Se a Cloudflare pedir para apagar `ns1/ns2.vercel-dns.com`, é isso
+  que tira o site do ar.
 
 Notas de ambiente (revisado em 14/08/2026): `api.vercel.com` **não está mais
 bloqueado** — o 403 que aparecia era a própria Vercel dizendo "falta token", não
@@ -87,8 +116,9 @@ valor, então só o painel ou o `/status` diz se estão preenchidas).
   banir/derrubar) → logs de auditoria. Termina com o teste de ponta a ponta
   descrito em `docs/fase-1-ligar-tudo.md`.
 - **Fase 2:** replay pago, cupons, e-mail de confirmação, chat, home com agenda.
-- **Fase 3:** credenciais MP de produção, domínio próprio, checklist do dia da
-  live (OBS: resolução/bitrate/keyframe, abrir/encerrar, plano B).
+- **Fase 3:** credenciais MP de produção, domínio próprio (comprado —
+  `misterolympia2026.online`, ver `docs/dominio-proprio.md`), checklist do dia
+  da live (OBS: resolução/bitrate/keyframe, abrir/encerrar, plano B).
 
 ## Segurança — inegociável
 
