@@ -7,41 +7,110 @@ endereço principal.
 **No código não muda nada.** O site inteiro descobre o próprio endereço por
 uma variável só (`NEXT_PUBLIC_SITE_URL`). Trocar essa variável troca o
 endereço nos e-mails de confirmação, no retorno do Mercado Pago, no sitemap e
-no link do webhook. O que precisa de trabalho manual são **4 painéis**.
+no link do webhook. O que precisa de trabalho manual são **5 painéis**: registrador (onde você
+comprou), Cloudflare, Vercel, Supabase e Mercado Pago.
 
 Faça na ordem. Cada passo tem o teste dele.
 
 ---
 
-## Passo 1 — Vercel: apontar o domínio
+## Quem manda no DNS: a Cloudflare
+
+Duas empresas quiseram cuidar do endereço: a Vercel e a Cloudflare. **Só uma
+pode.** Escolhemos a **Cloudflare**, por três motivos:
+
+1. Você já vai ser cliente dela por causa do Stream (o vídeo). Um painel a
+   menos para lembrar.
+2. Se um dia o site sair da Vercel para a Cloudflare (para fugir dos US$ 20
+   do plano Pro), o endereço já está no lugar certo e não sai do ar.
+3. DNS da Cloudflare é de graça e é o mais rápido que existe.
+
+A Vercel continua **hospedando o site**. A Cloudflare só responde "o site
+fica ali".
+
+---
+
+## Passo 1a — Cloudflare: assumir o endereço
+
+1. Na tela **Review your DNS records** ("Records we found: 0"), clique em
+   **Continue**.
+   > "0 registros" é o esperado: o domínio é novo e não tem nada nele. Os
+   > avisos sobre `MX`, `www` e raiz são só a Cloudflare dizendo "ainda está
+   > vazio" — a gente preenche no Passo 1c.
+2. Se ela perguntar entre **Proxied** e **DNS only**, siga em frente; a
+   escolha que vale a gente faz no Passo 1c.
+3. A Cloudflare mostra **dois nameservers** (algo como
+   `xxx.ns.cloudflare.com`). **Copie os dois.**
+4. Vá ao **site onde você comprou o domínio** (o registrador), abra as
+   configurações de `misterolympia2026.online` e procure **Nameservers** /
+   *Servidores DNS* / *DNS personalizado*. Apague os que estão lá e cole os
+   dois da Cloudflare. Salve.
+5. Volte à Cloudflare e clique em **Check nameservers now**.
+
+Agora é esperar. Costuma levar de 10 minutos a algumas horas. A Cloudflare
+manda um e-mail dizendo **"Your domain is active"**.
+
+---
+
+## Passo 1b — Vercel: pegar os endereços do servidor
+
+Enquanto espera, pegue o que a Vercel quer que você aponte:
 
 1. <https://vercel.com> → time **CLAN MAROMBA** → projeto **clan-maromba**
-2. Aba **Settings** → menu da esquerda → **Domains**
-3. **Add Domain** → digite `misterolympia2026.online` → **Add**
-4. Na tela **Connect your domain**:
+2. **Settings** → **Domains** → **Add Domain** → `misterolympia2026.online`
+3. Na tela **Connect your domain**:
    - **Search:** `Allow` — é como o Google acha o site
    - **Agent:** `Allow` — é como o ChatGPT cita o site quando alguém pergunta
      onde assistir
    - **Training:** deixe como veio
    - **Import DNS records:** `Automatic`
    - **Continue**
-5. A Vercel vai mostrar **o que cadastrar no site onde você comprou o
-   domínio**. São dois caminhos possíveis; ela te diz qual:
-   - **Nameservers** — você troca os servidores de DNS lá no registrador pelos
-     que a Vercel mostrar. Mais simples, e a Vercel passa a cuidar do DNS.
-   - **Registro A / CNAME** — você cria os registros que ela mostrar.
-   Copie os valores **da tela**, não daqui: eles mudam.
-6. Espere. Pode levar de 10 minutos a algumas horas (é o DNS se espalhando
-   pelo mundo). A Vercel mostra ✅ **Valid Configuration** quando terminar, e
-   emite o certificado HTTPS sozinha.
-7. Quando ficar verde, ainda em **Domains**, deixe
-   `misterolympia2026.online` como **Primary** (menu `···` → *Set as
-   Primary*). Isso faz o `.vercel.app` redirecionar para ele.
+4. A Vercel vai reclamar que o domínio não aponta para ela (**Invalid
+   Configuration**). **É o esperado** — ainda não apontamos.
+5. Ela mostra os valores que você precisa. Anote os dois, **exatamente como
+   estiverem na tela**:
+   - um registro **A** para a raiz (`@`) — um número tipo `76.76.21.21`
+   - um registro **CNAME** para `www` — algo como `cname.vercel-dns.com`
+
+> ⚠️ Copie da tela, não daqui. A Vercel troca esses valores de tempos em
+> tempos, e um número velho deixa o site fora do ar.
+
+---
+
+## Passo 1c — Cloudflare: apontar para a Vercel
+
+Quando a Cloudflare avisar que o domínio está **Active**:
+
+1. Painel da Cloudflare → `misterolympia2026.online` → menu **DNS** →
+   **Records**
+2. **Add record**, o primeiro:
+   - **Type:** `A`
+   - **Name:** `@`
+   - **IPv4 address:** o número que a Vercel mostrou
+   - **Proxy status:** clique na nuvem para deixá-la **CINZA (DNS only)**
+   - **Save**
+3. **Add record**, o segundo:
+   - **Type:** `CNAME`
+   - **Name:** `www`
+   - **Target:** o `cname.vercel-dns.com` que a Vercel mostrou
+   - **Proxy status:** **CINZA (DNS only)** também
+   - **Save**
+
+> 🟠 **A nuvem cinza é a parte que mais dá errado.** Se ela ficar laranja
+> (*Proxied*), a Cloudflare passa a se meter no meio do caminho: a Vercel não
+> consegue emitir o certificado de segurança e o site entra em loop infinito
+> de redirecionamento. Cinza = a Cloudflare só informa o endereço e sai da
+> frente. É o que queremos.
+
+4. Volte à Vercel → **Settings** → **Domains**. Em alguns minutos vira
+   ✅ **Valid Configuration** e ela emite o HTTPS sozinha.
+5. Ainda em **Domains**, deixe `misterolympia2026.online` como **Primary**
+   (`···` → *Set as Primary*). Isso faz o `.vercel.app` redirecionar para ele.
 
 ✅ **Teste:** abra `https://misterolympia2026.online`. Tem que carregar a home
 com o cadeado de seguro na barra de endereço.
 
-> Enquanto o DNS não propaga, o site fica **no ar pelo endereço antigo**.
+> Enquanto nada disso termina, o site continua **no ar pelo endereço antigo**.
 > Ninguém fica na porta.
 
 ---
