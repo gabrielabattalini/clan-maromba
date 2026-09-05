@@ -59,8 +59,25 @@ projeto** atende por ele.
 5. Como o DNS já é da Vercel, ela resolve tudo sozinha: cria os registros e
    emite o certificado HTTPS. Em poucos minutos aparece
    ✅ **Valid Configuration**.
-6. Ainda em **Domains**, deixe `misterolympia2026.online` como **Primary**
-   (`···` → *Set as Primary*). Isso faz o `.vercel.app` redirecionar para ele.
+6. A Vercel liga o `www` à Production e faz o endereço curto redirecionar
+   para ele. **Inverta isso**, porque o endereço oficial tem de ser o curto:
+   - Linha `misterolympia2026.online` → **Edit** → **Connect to an
+     environment** → `Production` → **Save**
+   - Linha `www.misterolympia2026.online` → **Edit** → **Redirect to Another
+     Domain** → `308 Permanent Redirect` → destino
+     `misterolympia2026.online` → **Save**
+   - O mesmo para `clan-maromba.vercel.app`, se quiser que o endereço antigo
+     leve ao novo.
+
+> **Por que o curto, e por que isso não é gosto pessoal.** O endereço do
+> webhook do Mercado Pago vai ser
+> `https://misterolympia2026.online/api/webhooks/mercadopago`. Se ele
+> responder **307/308 (desvio)** em vez de **200 (ok)**, o Mercado Pago pode
+> registrar o aviso como falho — e aviso que falha é comprador que pagou e
+> não recebeu acesso. O que estiver em `NEXT_PUBLIC_SITE_URL`, no Supabase e
+> no Mercado Pago tem de ser exatamente o endereço ligado à Production, sem
+> desvio no meio. Escolhemos o curto porque é o que cabe num story e num
+> flyer.
 
 ✅ **Teste:** abra `https://misterolympia2026.online`. Tem que carregar a home
 com o cadeado de seguro na barra de endereço.
@@ -81,8 +98,20 @@ e-mail de confirmação de conta continua mandando a pessoa para o `.vercel.app`
    ```
    https://misterolympia2026.online
    ```
-   Com `https://`, **sem barra no final**, tudo minúsculo.
+   Com `https://`, **sem `www`, sem barra no final**, tudo minúsculo.
 4. **Save**
+
+> ⚠️ **Se a Vercel não deixar salvar.** As variáveis da Fase 0 foram criadas
+> como **Secret**, e a Vercel passou a recusar isso para nomes que começam
+> com `NEXT_PUBLIC_` — o prefixo entrega o valor ao navegador de qualquer
+> jeito, então "segredo" ali é contradição. Ela também não converte para
+> **Config**, porque segredo salvo é só-escrita e nem ela consegue ler.
+> A saída é **apagar a variável e criar de novo** com **Type: Config**.
+> Pode apagar sem medo: sem `NEXT_PUBLIC_SITE_URL` o site não cai, ele usa o
+> endereço de produção que a própria Vercel informa (`enderecoDoSite`, em
+> `src/lib/config.ts`).
+> Vale para as outras duas `NEXT_PUBLIC_` (as do Supabase) no dia em que
+> precisarem mudar. Enquanto não mudarem, funcionam como estão.
 5. Aba **Deployments** → no primeiro da lista → `···` → **Redeploy** →
    confirme.
    *Sem o Redeploy a variável nova não vale.*
