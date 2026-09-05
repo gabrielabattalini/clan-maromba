@@ -133,10 +133,17 @@ verdade. Só na Fase 3, no lançamento, trocamos pelas de verdade.
 Este é o único serviço pago da base, e é o coração do produto: é ele que
 recebe a transmissão do seu OBS e entrega o vídeo protegido para quem comprou.
 
-**Quanto custa:** US$ 5 compram 1.000 minutos de armazenamento de gravações,
-e a entrega custa US$ 1 a cada 1.000 minutos assistidos (ex.: 100 pessoas × 2h
-≈ US$ 12 na live). Mandar a live do OBS para lá é **grátis**. Precisa de
-cartão internacional.
+**Quanto custa** (conferido em 02/09/2026): US$ 5 por mês compram 1.000
+minutos de armazenamento **e já incluem 5.000 minutos de entrega**. Passando
+disso, a entrega custa US$ 1 a cada 1.000 minutos assistidos — ex.: 100
+pessoas × 2h ≈ US$ 12. Mandar a live do OBS para lá é **grátis**: a Cloudflare
+não cobra nem o envio nem a conversão. Precisa de cartão internacional.
+
+⚠️ **Toda transmissão ao vivo é gravada automaticamente, e não dá para
+desligar.** A gravação ocupa armazenamento: 20 horas de evento são 1.200
+minutos, o que já passa dos 1.000 inclusos e leva a conta para US$ 10/mês
+enquanto os arquivos existirem. Se não for vender replay, apague as gravações
+depois do evento.
 
 **4a. Assinar o Stream**
 
